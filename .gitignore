@@ -1,0 +1,9 @@
+ai/anomaly_detection/jetson_deploy/damage_check_v1/weights/
+
+# AI model artifacts
+*.onnx
+*.pt
+*.pth
+*.engine
+*.weights
+**/weights/

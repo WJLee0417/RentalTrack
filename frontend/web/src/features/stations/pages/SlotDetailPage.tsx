@@ -1,0 +1,491 @@
+import { useState, type ReactNode } from 'react';
+import { Link, useParams } from 'react-router-dom';
+
+import { RETURN_STATUS_LABEL, RETURN_STATUS_TONE } from '@/shared/constants/returnStatus';
+import { formatScore } from '@/features/inspections/lib/aiScore';
+import { SlotLockIcon } from '@/features/stations/components/SlotLockIcon';
+import { SlotStatusDialog } from '@/features/stations/components/SlotStatusDialog';
+import {
+    useChangeSlotStatus,
+    useSlotDetail,
+    useStation,
+} from '@/features/stations/hooks/useStations';
+import {
+    aiResultText,
+    aiResultTone,
+    DECISION_TONE,
+    decisionHint,
+    decisionText,
+    deriveSlotDisplayStatus,
+    displayItemCondition,
+    formatSlotLabel,
+    ITEM_CONDITION_TONE,
+    pendingInspectionId,
+    SLOT_DISPLAY_TONE,
+    slotStatusHint,
+    slotStatusText,
+} from '@/features/stations/types';
+import { shortRef } from '@/shared/lib/shortId';
+import { Badge } from '@/shared/components/Badge';
+import { CopyButton } from '@/shared/components/CopyButton';
+import { PageBar } from '@/shared/components/PageBar';
+import { ErrorState, LoadingState, NotFoundState } from '@/shared/components/PageState';
+import { PageTitle } from '@/shared/components/PageTitle';
+import { ITEM_CONDITION_LABEL, LOCK_STATUS_LABEL } from '@/shared/constants/statusLabels';
+
+export function SlotDetailPage() {
+    const { slotId } = useParams();
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    // ADMIN-SLOT-DETAIL-001 — 라우트 파라미터는 슬롯 UUID 하나뿐입니다.
+    const slotQuery = useSlotDetail(slotId);
+    const slot = slotQuery.data;
+    /*
+     * 대여소는 **슬롯 응답의 `stationId`** 로 찾습니다. 주소에서 받지 않습니다.
+     *
+     * 예전에는 `/stations/:stationId/slots/:slotId` 라 대여소를 주소에서 가져왔는데,
+     * 둘이 어긋나면(주소를 손대거나 링크를 잘못 복사하면) 슬롯은 그대로인데 대여소 이름·코드가
+     * 다른 곳으로 표시됐습니다. `SL-01-01` 이 `SL-03-01` 로 보이는 식입니다.
+     * 서버가 준 소속을 쓰면 그 어긋남 자체가 불가능합니다.
+     */
+    const { data: station } = useStation(slot?.stationId);
+    // ADMIN-SLOT-STATUS-001 — 성공하면 훅이 캐시를 무효화해 이 조회가 다시 돕니다.
+    const changeStatus = useChangeSlotStatus();
+
+    /*
+     * 세 경우를 갈라 말합니다. 예전에는 `!station || !slot` 하나로 묶어 전부
+     * 「존재하지 않는 슬롯입니다」였습니다.
+     *
+     *   불러오는 중 → 데이터가 아직 `undefined` 라서, **로딩 중에도** "없다" 고 떴습니다.
+     *                 잠깐이지만 없는 걸 봤다고 믿고 뒤로 가는 데는 충분합니다.
+     *   조회 실패   → 서버가 500 을 줘도 "없다" 고 단정했고, 다시 시도할 버튼도 없었습니다.
+     *   정말 없음   → 이때만 "없다" 가 맞습니다.
+     */
+    const breadcrumb = [
+        { label: '대여소 관리', to: '/stations' },
+        ...(station ? [{ label: station.name, to: `/stations/${station.stationId}` }] : []),
+    ];
+
+    if (slotQuery.isPending) {
+        return (
+            <div>
+                <PageBar breadcrumb={breadcrumb} />
+                <LoadingState />
+            </div>
+        );
+    }
+
+    if (slotQuery.isError) {
+        return (
+            <div>
+                <PageBar breadcrumb={breadcrumb} />
+                <ErrorState error={slotQuery.error} onRetry={() => void slotQuery.refetch()} />
+            </div>
+        );
+    }
+
+    if (!slot) {
+        return (
+            <div>
+                <PageBar breadcrumb={breadcrumb} />
+                <NotFoundState label="슬롯" id={slotId} />
+            </div>
+        );
+    }
+
+    /*
+     * 슬롯은 있는데 대여소를 못 읽은 경우.
+     *
+     * 대여소 이름은 이름표일 뿐이라 슬롯 상세를 막을 이유가 없습니다. 예전에는 이때도
+     * "슬롯이 없다" 고 해서, 대여소 조회만 실패해도 멀쩡한 슬롯을 못 보게 했습니다.
+     * TODO: 대여소 조회 API 가 계약에 들어오면 여기도 재시도를 붙이세요.
+     */
+    if (!station) {
+        return (
+            <div>
+                <PageBar breadcrumb={breadcrumb} />
+                <ErrorState error={new Error('대여소 정보를 불러오지 못했습니다.')} />
+            </div>
+        );
+    }
+
+    // 'SL-03-01' 은 station_code + slot_number 로 만드는 표시 라벨입니다. DB 컬럼이 아닙니다.
+    const slotLabel = formatSlotLabel(slot.slotNumber);
+    const display = deriveSlotDisplayStatus(slot);
+    // 우산이 없는 슬롯은 품질을 단정하지 않습니다 (`displayItemCondition` 주석 참고).
+    const displayedCondition = displayItemCondition(slot);
+    // 상세 응답의 latestInspection / latestReturnAttempt 를 그대로 씁니다 (12-R B-4).
+    const inspection = slot.latestInspection;
+    const pendingId = pendingInspectionId(slot);
+
+    return (
+        <div>
+            <PageBar
+                breadcrumb={[
+                    { label: '대여소 관리', to: '/stations' },
+                    {
+                        label: station.name,
+                        to: `/stations/${station.stationId}`,
+                    },
+                    { label: slotLabel },
+                ]}
+                meta={`최근 갱신 ${slot.updatedAt.slice(0, 10)} ${slot.updatedAt.slice(11, 16)}`}
+            />
+
+            {/* 요약 줄 */}
+            <div className="mb-[18px] flex h-[58px] items-center rounded-lg bg-white pl-5 pr-4">
+                <Badge tone={SLOT_DISPLAY_TONE[display]} title={slotStatusHint(display)}>
+                    {slotStatusText(display)}
+                </Badge>
+                <PageTitle
+                    className="ml-[17px] !text-[16px] !font-bold"
+                    documentTitle={`${slotLabel} 슬롯`}
+                >
+                    {`${slotLabel} · ${station.name}`}
+                </PageTitle>
+
+                <div className="ml-auto flex items-center gap-2">
+                    {/*
+                     * 미처리 검수가 걸린 슬롯은 상태 변경으로 확정하면 안 됩니다.
+                     * ADMIN-SLOT-STATUS-001 은 슬롯만 바꾸고 파손 정산을 만들지 않아서,
+                     * 우회하면 슬롯은 파손인데 청구가 없고 검수는 PENDING 으로 남습니다.
+                     * 확정 경로는 ADMIN-INSPECTION-003 하나입니다 (화면흐름 §10.2 · §18).
+                     */}
+                    {pendingId && (
+                        <Link
+                            to={`/inspections/${pendingId}`}
+                            className="inline-flex h-[34px] w-[77px] items-center justify-center rounded-[7px] bg-tone-amber-fg text-[13px] font-bold text-white transition-opacity hover:opacity-85"
+                        >
+                            검수하기
+                        </Link>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setDialogOpen(true)}
+                        disabled={pendingId !== null}
+                        title={
+                            pendingId
+                                ? '검수 대기 슬롯입니다. 검수에서 판정해야 파손 정산까지 함께 처리됩니다.'
+                                : undefined
+                        }
+                        className="h-[34px] w-[77px] rounded-[7px] bg-brand-blue text-[13px] font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:bg-brand-border-soft disabled:text-brand-muted"
+                    >
+                        상태 변경
+                    </button>
+                </div>
+            </div>
+
+            {/* 2단 카드 */}
+            <div className="mb-[46px] grid grid-cols-2 gap-[18px]">
+                {/*
+                 * **우산 상태는 요약 줄 배지와 겹쳐도 남깁니다.**
+                 *
+                 * `deriveSlotDisplayStatus` 는 4축을 배지 하나로 뭉개면서 `serviceStatus` 를
+                 * 가장 먼저 봅니다 — `ADMIN_REVIEW` 가 걸리면 `itemCondition` 이 무엇이든
+                 * 「판정 대기」 하나로 나옵니다. 그래서 성격이 아주 다른 두 슬롯이 배지만으로는
+                 * 똑같아 보입니다.
+                 *   - 반납 뒤 AI 가 파손 의심해 격리한 슬롯 (`UNKNOWN`, 검수 있음)
+                 *   - 관리자가 순찰 중 수리 대상으로 지정한 슬롯 (`REPAIRABLE`, 검수 없음)
+                 * 관리자가 할 일이 「판정하기」와 「수리 보내기」로 갈립니다. 라벨은 ERD 표시 기준 그대로입니다.
+                 *
+                 * **`occupancyStatus`(점유)는 뺐습니다.** 같은 이유가 이 축에는 서지 않았습니다.
+                 * 배지가 `이용 가능`이면 점유는 반드시 `OCCUPIED`, `빈 슬롯`이면 반드시 `EMPTY`
+                 * 라서 파생 조건상 되읽을 수 있고, 그 밖의 경우도 바로 아래 우산 상태 줄이
+                 * 대신 말해 줍니다.
+                 *
+                 * 잃는 것은 `점유 확인 불가`(센서가 우산 유무를 못 읽음) 하나뿐입니다. 그 경우
+                 * 4축이 어느 조합에도 안 맞아 요약 배지가 `UNKNOWN` 으로 떨어지므로, 이상이
+                 * 있다는 사실 자체는 화면에 남습니다 — 원인을 좁히는 데 한 단계 더 걸릴 뿐입니다.
+                 * 대여소 단위 개수는 재고 화면의 `unknownOccupancySlotCount` 카드에 있습니다.
+                 */}
+                {/*
+                 * 제목이 **「실물 상태」**입니다 — 예전에는 「슬롯 상태」였는데, 목록 표의
+                 * 열 제목도 「슬롯 상태」라 같은 낱말이 다른 것을 가리켰습니다.
+                 *   목록 「슬롯 상태」 — 4축을 뭉갠 **파생 배지**
+                 *   이 카드          — 그 배지가 못 말하는 **원값 두 축**(우산 품질·잠금)
+                 * 점유·서비스는 위 요약 배지에서 되읽히므로 여기 없습니다(아래 주석 참고).
+                 * 그래서 이 카드가 담는 건 "실물이 지금 어떤가"입니다.
+                 */}
+                <InfoCard title="실물 상태">
+                    <InfoRow label="우산 상태">
+                        {/*
+                         * 이 줄만 배지입니다. 3번(확인 필요)과 5번(수리 가능)처럼 **할 일이
+                         * 갈리는 축**이라 훑을 때 색으로 먼저 걸려야 합니다. 잠금은 사실
+                         * 진술이라 글자로 충분합니다.
+                         *
+                         * **우산이 없으면 상태를 말하지 않습니다** — 규칙과 근거는
+                         * `displayItemCondition` 주석에 있습니다. 요약 배지가 「빈 슬롯」인데
+                         * 이 줄만 「정상」이 되는 어긋남을 막습니다.
+                         */}
+                        {displayedCondition ? (
+                            <Badge tone={ITEM_CONDITION_TONE[displayedCondition]}>
+                                {ITEM_CONDITION_LABEL[displayedCondition]}
+                            </Badge>
+                        ) : (
+                            <span className="text-[13px] font-semibold text-brand-muted">—</span>
+                        )}
+                    </InfoRow>
+                    {/*
+                     * **`serviceStatus`(서비스)도 뺐습니다 — 요약 배지에서 전부 되읽힙니다.**
+                     *
+                     * 라벨 문자열까지 같아서(`SLOT_SERVICE_LABEL` 과 `SLOT_DISPLAY_LABEL` 의
+                     * `이용 가능`·`판정 대기`·`이용 중지`) 배지 바로 아래 같은 낱말이 한 번 더
+                     * 찍히고 있었습니다. 세 값이 배지와 1:1 로 대응합니다.
+                     *   판정 대기            → `ADMIN_REVIEW` (파생 함수가 가장 먼저 보는 축)
+                     *   이용 중지            → `OUT_OF_SERVICE`
+                     *   이용 가능·빈 슬롯·UNKNOWN → `AVAILABLE` (앞의 두 분기를 통과했으므로)
+                     *   파손                 → `OUT_OF_SERVICE`. `AVAILABLE+(DAMAGED|REPAIRABLE)`
+                     *                          는 `Slot.isValidAdminCombination` 이 거부하는
+                     *                          조합이라 남는 경우가 이것뿐입니다.
+                     *
+                     * 잃는 것: 그 **거부되는 조합이 어떻게든 DB 에 들어왔을 때**. 배지는 「파손」인데
+                     * 서비스가 `AVAILABLE` 이면 파손 우산이 대여 대상으로 열려 있다는 뜻인데,
+                     * 이 줄이 없으면 화면이 그 사실을 말하지 못합니다. 백엔드 관리자 API 로는
+                     * 만들 수 없는 조합이라 지금은 감수합니다.
+                     * TODO: 슬롯 4축 불변식을 화면에서 검사하게 되면 그 경고로 대신하세요.
+                     */}
+                    <InfoRow label="잠금">
+                        {/*
+                         * **정상 잠김이면 아이콘만, 나머지 셋은 글자를 붙입니다.**
+                         *
+                         * 예전 주석은 "아이콘만 두면 `확인 불가`와 `오류`를 색으로만 구분해야
+                         * 한다"고 했는데, 지금 `SlotLockIcon` 은 **모양으로** 가릅니다 —
+                         * 고리 열림/닫힘에 더해 열쇠구멍 자리에 `?`(확인 불가)·`!`(오류)를
+                         * 넣습니다. 색맹이어도 구분됩니다.
+                         *
+                         * 그래도 이상 상태에는 글자를 남깁니다. 그 표식이 12px 아이콘 안의
+                         * 7.5px 글자라 훑을 때 놓치기 쉽고, 이 셋은 관리자가 손대야 하는
+                         * 상태입니다. 반대로 `LOCKED` 는 아무 일도 없다는 뜻이라 아이콘 옆에
+                         * 「잠금」이라고 한 번 더 쓰면 같은 말을 두 번 하는 셈입니다.
+                         */}
+                        <span className="flex items-center gap-[7px]">
+                            <SlotLockIcon status={slot.lockStatus} />
+                            {slot.lockStatus !== 'LOCKED' && (
+                                <span className="text-[13px] font-semibold text-brand-ink">
+                                    {LOCK_STATUS_LABEL[slot.lockStatus]}
+                                </span>
+                            )}
+                        </span>
+                    </InfoRow>
+                    {/*
+                     * 「최근 갱신」은 여기 두지 않습니다. 우측 상단 PageBar 의 meta 가 **같은
+                     * `updatedAt` 을 같은 형식으로** 이미 찍고 있어서, 한 화면에 똑같은 문자열이
+                     * 두 번 나왔습니다. 두 자리 중 상단이 화면 전체의 기준 시각이라 그쪽을 남깁니다.
+                     */}
+                </InfoCard>
+
+                {/*
+                 * '검수 상세' 는 **카드 제목 줄 오른쪽**에 답니다.
+                 *
+                 * 예전에는 「판정 사유」라는 행을 만들어 그 값 자리에 이 링크를 뒀습니다.
+                 * 라벨이 없는 것을 약속하는 셈이었습니다 — 판정 사유(`reasonCode`·`note`)는
+                 * `ADMIN-SLOT-STATUS-001`·`ADMIN-INSPECTION-003` 이 **받기만** 하고 조회 응답에는
+                 * 없는 필드라, 그 행에 진짜 사유가 담길 날이 오지 않습니다.
+                 *
+                 * 링크는 카드 전체로 가는 출구이지 어느 한 항목의 값이 아니므로 제목 줄이
+                 * 제자리입니다. 검수가 없으면 링크도 없습니다(갈 곳이 없으니).
+                 */}
+                <InfoCard
+                    title="최근 검수"
+                    action={
+                        inspection && (
+                            <Link
+                                to={`/inspections/${inspection.inspectionId}`}
+                                className="text-[13px] font-bold leading-none text-brand-blue-ink transition-opacity hover:opacity-70"
+                            >
+                                검수 상세
+                            </Link>
+                        )
+                    }
+                >
+                    {inspection ? (
+                        <>
+                            {/* AI·관리자·슬롯은 값 집합이 셋 다 다릅니다. 라벨로도 구분해 둡니다. */}
+                            <InfoRow label="AI 판정 (참고) / 신뢰도">
+                                <span className="flex items-center gap-[7px]">
+                                    <Badge tone={aiResultTone(inspection.aiResult)}>
+                                        {aiResultText(inspection.aiResult)}
+                                    </Badge>
+                                    <span className="text-brand-muted">/</span>
+                                    {/* FAILED 는 신뢰도가 없습니다. 0.00 으로 채우지 않습니다. */}
+                                    <span className="text-[13px] font-semibold tabular-nums text-brand-ink">
+                                        {formatScore(inspection.aiScore)}
+                                    </span>
+                                </span>
+                            </InfoRow>
+                            <InfoRow label="관리자 최종 판정 (확정)">
+                                {/* 미처리(PENDING)면 아직 판정이 없습니다. AI 결과로 대신 채우지 않습니다. */}
+                                {inspection.decision ? (
+                                    <Badge
+                                        tone={DECISION_TONE[inspection.decision]}
+                                        title={decisionHint(inspection.decision)}
+                                    >
+                                        {decisionText(inspection.decision)}
+                                    </Badge>
+                                ) : (
+                                    <Badge tone="amber">미판정</Badge>
+                                )}
+                            </InfoRow>
+                            {/*
+                             * 모델 버전·처리 시각은 여기 두지 않습니다.
+                             * §7.6 슬롯 상세 표시 필드는 `AI 결과·신뢰도` 까지이고, 모델 버전은
+                             * `WF-WEB-CHANGE-001` 이 검수 상세(`SCR-WEB-INSPECTION-DETAIL-001`)
+                             * 의 항목으로 정했습니다 — "AI 결과, 신뢰도, 모델 버전, 추론 시각·지연".
+                             * 제목 줄의 '검수 상세' 링크 한 번이면 거기서 봅니다.
+                             */}
+                        </>
+                    ) : (
+                        <p className="pt-1 text-[13px] font-medium text-brand-muted">
+                            이 슬롯에는 아직 검수 결과가 없습니다.
+                        </p>
+                    )}
+
+                    {/*
+                     * **반납 시도는 검수 바깥에 둡니다.**
+                     *
+                     * 예전에는 `inspection` 이 있을 때만 그렸는데, 둘은 생기는 시점이
+                     * 다릅니다 — 반납이 `PROCESSING` 인 동안에는 검수가 아직 없어서 이
+                     * 슬롯이 왜 묶여 있는지 화면이 아무 말도 못 했습니다.
+                     *
+                     * `status` 는 응답에 있는데 안 쓰고 있던 값입니다. 이게 있어야 「물리
+                     * 반납은 끝났고 서버 반영이 남았다」와 「복구가 필요하다」가 갈립니다.
+                     * 라벨·톤은 이력 화면과 같은 표를 씁니다 (ERD 「반납 상태도 보조 표시 기준」).
+                     */}
+                    {slot.latestReturnAttempt && (
+                        <InfoRow label="연결 반납 시도">
+                            <span className="flex items-center gap-[7px]">
+                                <Badge tone={RETURN_STATUS_TONE[slot.latestReturnAttempt.status]}>
+                                    {RETURN_STATUS_LABEL[slot.latestReturnAttempt.status]}
+                                </Badge>
+                                <RefId id={slot.latestReturnAttempt.returnAttemptId} />
+                            </span>
+                        </InfoRow>
+                    )}
+                </InfoCard>
+            </div>
+
+            {/*
+             * **「상태 이력」 카드를 뒀던 자리입니다. 되살리지 마세요.**
+             *
+             * 그 표는 서버가 준 이력이 아니라 `buildSlotHistory` 가 지어낸 것이었습니다.
+             * 「대여 21:22」 같은 시각은 `updatedAt` 에서 45분을 뺀 숫자였고, 「반납」·「대여」
+             * 라는 사건 자체도 코드가 고정해 둔 이야기였습니다.
+             *
+             * 진짜 이력을 그리려면 대여·반납 시각이 필요한데, 관리자 API 8개 어디에도
+             * 없습니다. `LatestReturnAttemptView` 는 `returnAttemptId`·`rentalId`·`status`
+             * 뿐이고(docs/api-docs.json), 명세 전체를 뒤져도 관리자 응답의 시각은
+             * `processedAt`·`updatedAt`·`decidedAt` 셋뿐입니다. DB 엔티티에는 `rentedAt`
+             * 등이 있지만 계약이 안 꺼내 줍니다.
+             *
+             * 그래서 지어내는 대신 **없앴습니다** (곽도연님 결정, 2026-08-08).
+             * 이력 API 나 시각 필드가 계약에 들어오면 그때 실데이터로 새로 만드세요.
+             */}
+
+            <SlotStatusDialog
+                open={dialogOpen}
+                slot={slot}
+                subtitle={`${slotLabel} · ${station.name}`}
+                onClose={() => {
+                    changeStatus.reset();
+                    setDialogOpen(false);
+                }}
+                pending={changeStatus.isPending}
+                error={changeStatus.error}
+                // 성공했을 때만 닫습니다. 실패하면 열어 둬야 오류를 읽고 다시 판단할 수 있습니다.
+                onSubmit={(change) =>
+                    changeStatus.mutate({ slot, change }, { onSuccess: () => setDialogOpen(false) })
+                }
+            />
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ 하위 조각 */
+
+/**
+ * 2단 카드 한 장. 시안 기준 제목 아래 15px, 행 간격 8px(행 높이 22px → 30px 주기)입니다.
+ *
+ * `action` 은 제목 줄 오른쪽 끝에 붙는 링크·버튼 자리입니다. 카드 **전체**로 이어지는
+ * 출구를 둘 때 씁니다 — 어느 한 항목의 값이면 `InfoRow` 로 가야 합니다.
+ *
+ * 제목과 같은 줄에 두되 높이는 제목이 정합니다(`h-[15px]`, `text-[15px] leading-none`).
+ * 옆 카드에 `action` 이 없어도 두 카드의 첫 행이 같은 y 에 놓입니다.
+ */
+function InfoCard({
+    title,
+    action,
+    children,
+}: {
+    title: string;
+    action?: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <section className="rounded-lg bg-white px-5 py-6">
+            <div className="mb-[15px] flex h-[15px] items-center justify-between gap-4">
+                <h3 className="text-[15px] font-extrabold leading-none text-brand-ink">{title}</h3>
+                {action}
+            </div>
+            <div className="space-y-2">{children}</div>
+        </section>
+    );
+}
+
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="flex h-[22px] items-center justify-between gap-4">
+            <span className="text-[12.5px] font-medium text-brand-body">{label}</span>
+            {children}
+        </div>
+    );
+}
+
+/** 다른 도메인(대여·반납 시도)으로 이어질 값. 라우트가 생기면 Link 로 바꾸세요. */
+/**
+ * 거래 식별자 표시.
+ *
+ * ERD 의 `rental_id`·`return_attempt_id`·`inspection_id` 는 UUID 뿐이라 표에 36자를 깔 수
+ * 없습니다. 앞 8자만 보여주되 **전체 값에 닿을 방법을 반드시 남깁니다.**
+ *   - `title` — 마우스를 올리면 36자 전체
+ *   - `select-all` — 한 번 클릭으로 전체 선택돼 복사됨
+ * 관리자가 백엔드 로그·문의와 대조하려면 전체 값이 필요합니다.
+ *
+ * 이동할 화면이 있으면(`to`) 진짜 링크로 만듭니다. 없으면 파란 글자로 만들지 않습니다 —
+ * 링크처럼 보이는데 눌리지 않는 게 제일 나쁩니다.
+ */
+function RefId({ id, to }: { id: string | null | undefined; to?: string | null }) {
+    if (!id) {
+        return (
+            <span className="text-brand-muted" aria-label="연결 없음">
+                —
+            </span>
+        );
+    }
+
+    const short = shortRef(id);
+
+    if (to) {
+        return (
+            <Link
+                to={to}
+                title={id}
+                className="text-[13px] font-bold tabular-nums text-brand-blue-ink underline-offset-2 transition-opacity hover:underline hover:opacity-70"
+            >
+                {short}
+            </Link>
+        );
+    }
+
+    return (
+        <span className="flex items-center justify-end gap-[6px]">
+            <span
+                title={id}
+                className="cursor-text select-all text-[13px] font-bold tabular-nums text-brand-ink-soft"
+            >
+                {short}
+            </span>
+            {/* 화면에는 8자만 보이므로 전체 값을 꺼낼 손잡이를 답니다. */}
+            <CopyButton value={id} label="반납 시도 ID" />
+        </span>
+    );
+}

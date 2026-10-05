@@ -1,0 +1,67 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.ssafy'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// 챗봇(CHATBOT-001) — GMS 게이트웨이(OpenAI 호환, gpt-5.4-nano) /chat/completions를
+	// RestClient로 직접 호출한다. 2026-08-03: 원래 spring-ai-starter-model-openai를 썼는데,
+	// 실제로 쓰는 기능(단발 호출 + JSON 응답 파싱)에 비해 공식 OpenAI SDK(42MB)와 스트리밍용
+	// WebClient/Reactor Netty 스택까지 끌고 와 부트jar가 90MB+ 불어나는 걸 확인하고 제거했다
+	// (RestClient.Builder는 아래 spring-boot-starter-restclient가 자동설정해준다).
+	implementation 'org.springframework.boot:spring-boot-starter-restclient'
+	implementation 'org.springframework.boot:spring-boot-starter-integration'
+	implementation 'org.springframework.integration:spring-integration-mqtt'
+	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+
+	developmentOnly 'me.paulschwarz:springboot4-dotenv:5.1.0'
+
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'org.flywaydb:flyway-mysql'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	// Spring Boot 4.x부터 @WebMvcTest 등 웹 MVC 테스트 슬라이스가 spring-boot-starter-test에서
+	// 빠져 이 모듈로 분리됐다(chatbot-service 프로토타입에서 실측 확인된 함정, 이 프로젝트는
+	// 아직 @WebMvcTest를 쓰는 테스트가 없어서 이번에 처음 추가한다).
+	testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// CI 컨테이너(eclipse-temurin, 기본 UTC)와 개발자 로컬 OS 로케일이 Asia/Seoul이 아닌
+// 경우에도 항상 같은 결과를 내도록 명시적으로 고정한다 — JDBC URL의
+// serverTimezone=Asia/Seoul과 짝을 맞추는 값(Dockerfile의 동일 설정과 같은 이유, EC2에서
+// 실측 확인된 버그). CI(ci.yml)의 docker run이 TZ를 안 정해서 지금까지 계속 UTC로
+// 돌아가고 있었다 — device_operation류 시각 제약을 직접 건드리는 테스트가 아직 없어서
+// 안 드러났을 뿐이다.
+tasks.named('test') {
+	useJUnitPlatform()
+	jvmArgs '-Duser.timezone=Asia/Seoul'
+}
+
+tasks.named('bootRun') {
+	jvmArgs '-Duser.timezone=Asia/Seoul'
+}

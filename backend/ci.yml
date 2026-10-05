@@ -1,0 +1,66 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  BACKEND_DIR: backend
+
+.backend-changes:
+  rules:
+    - changes:
+        - backend/**/*
+
+.backend-develop:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - backend/**/*
+
+backend-build:
+  stage: build
+  extends: .backend-changes
+  script:
+    - cd $BACKEND_DIR
+    - docker run --rm -u "$(id -u):$(id -g)" -e HOME=/workspace -v "$(pwd)":/workspace -w /workspace eclipse-temurin:21-jdk-jammy
+      sh -c "chmod +x gradlew && ./gradlew build -x test --no-daemon"
+  # 2026-08-03: 이 jar 아티팩트를 받아쓰는 후속 스테이지가 없다(backend-test는 소스에서 새로
+  # ./gradlew test, backend-deploy는 Dockerfile 안에서 소스부터 다시 bootJar) — 순수
+  # 컴파일 fail-fast 검증용이라 업로드가 애초에 불필요했다. spring-ai-starter-model-openai
+  # 추가로 부트jar가 139MB(openai-java-core 42MB + 전 플랫폼 netty QUIC 네이티브 등)까지
+  # 불어나면서 GitLab 아티팩트 업로드 한도를 넘어 "413 Request Entity Too Large"로 파이프라인
+  # 전체가 실패했다 — artifacts 블록 자체를 제거해 근본 해결.
+
+backend-test:
+  stage: test
+  extends: .backend-changes
+  script:
+    - cd $BACKEND_DIR
+    - docker network create billisan-ci-net-$CI_JOB_ID
+    - docker run -d --name billisan-ci-db-$CI_JOB_ID --network billisan-ci-net-$CI_JOB_ID
+      -e TZ=Asia/Seoul -e MYSQL_ROOT_PASSWORD=ci -e MYSQL_DATABASE=billisan -e MYSQL_USER=billisan -e MYSQL_PASSWORD=ci
+      mysql:8.0 --log-bin-trust-function-creators=1 --default-time-zone=+09:00
+    - timeout 60 sh -c 'until docker logs billisan-ci-db-$CI_JOB_ID 2>&1 | grep -Fq "MySQL init process done. Ready for start up."; do sleep 2; done'
+    - timeout 60 sh -c 'until docker exec billisan-ci-db-$CI_JOB_ID mysql -uroot -pci -Nse "SELECT 1" >/dev/null 2>&1; do sleep 2; done'
+    - test "$(docker exec billisan-ci-db-$CI_JOB_ID mysql -uroot -pci -Nse 'SELECT @@session.time_zone')" = "+09:00"
+    - docker run --rm -u "$(id -u):$(id -g)" --network billisan-ci-net-$CI_JOB_ID
+      -e HOME=/workspace
+      -e SPRING_DATASOURCE_URL="jdbc:mysql://billisan-ci-db-$CI_JOB_ID:3306/billisan?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul"
+      -e SPRING_DATASOURCE_USERNAME=billisan -e SPRING_DATASOURCE_PASSWORD=ci -e JWT_SECRET=LXEjAqu7PMCkK0ip9Cz1aHcJdMCISjdFo9wmuEoyzthpL8FZwsx5ZxADhop38Kcn
+      -v "$(pwd)":/workspace -w /workspace eclipse-temurin:21-jdk-jammy
+      sh -c "chmod +x gradlew && ./gradlew test --no-daemon"
+  after_script:
+    - docker rm -f billisan-ci-db-$CI_JOB_ID || true
+    - docker network rm billisan-ci-net-$CI_JOB_ID || true
+
+backend-deploy:
+  stage: deploy
+  extends: .backend-develop
+  script:
+    - cd $BACKEND_DIR
+    - docker build -t billisan-app:latest .
+    - mkdir -p ~/billisan
+    - cp docker-compose.yml ~/billisan/docker-compose.yml
+    - cp mosquitto.conf ~/billisan/mosquitto.conf
+    - cd ~/billisan
+    - docker compose up -d db app mosquitto
