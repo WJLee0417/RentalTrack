@@ -8,12 +8,7 @@ from rentaltrack_ai.data.dataset import validate_history
 
 
 class TtmR3Forecaster:
-    """Zero-shot Granite TTM-R3 adapter.
-
-    Heavy TTM dependencies are imported lazily so baseline/data CI does not
-    download model weights. Runtime model selection is delegated to IBM's
-    get_model helper.
-    """
+    """Zero-shot Granite TTM-R3 adapter."""
 
     def __init__(self, config: ForecastConfig) -> None:
         self.config = config
@@ -32,10 +27,9 @@ class TtmR3Forecaster:
 
         self._torch = torch
         self._model = get_model(
-            model_path=self.config.model_path,
+            self.config.model_path,
             context_length=self.config.context_length,
             prediction_length=self.config.prediction_length,
-            prefer_l1_loss=True,
         )
         self._model.eval()
         return self
@@ -58,11 +52,16 @@ class TtmR3Forecaster:
                     f"{self.config.context_length} observations per series"
                 )
 
-            context = ordered[self.config.target_column].tail(
-                self.config.context_length
-            ).to_numpy(dtype=np.float32)
+            context = (
+                ordered[self.config.target_column]
+                .tail(self.config.context_length)
+                .to_numpy(dtype=np.float32)
+            )
 
-            past_values = self._torch.tensor(context).reshape(
+            past_values = self._torch.tensor(
+                context,
+                dtype=self._torch.float32,
+            ).reshape(
                 1,
                 self.config.context_length,
                 1,
@@ -79,7 +78,9 @@ class TtmR3Forecaster:
             )
             predicted = np.maximum(predicted, 0.0)
 
-            start = ordered["timestamp"].max() + pd.Timedelta(self.config.frequency)
+            start = ordered["timestamp"].max() + pd.Timedelta(
+                self.config.frequency
+            )
             timestamps = pd.date_range(
                 start=start,
                 periods=len(predicted),

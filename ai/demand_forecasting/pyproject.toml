@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "rentaltrack-demand-forecasting"
 version = "0.1.0"
 description = "RentalTrack demand forecasting pipeline with Historical Average and Granite TTM-R3"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "numpy>=1.26,<3",
-  "pandas>=2.2,<3",
+  "pandas>=2.3.3,<4",
 ]
 
 [project.optional-dependencies]
@@ -17,9 +17,11 @@ test = [
   "pytest>=8,<9",
 ]
 ttm = [
-  "torch>=2.2",
-  "transformers>=4.38,<6",
-  "granite-tsfm @ git+https://github.com/ibm-granite/granite-tsfm.git",
+  "granite-tsfm==0.3.9",
+]
+experiment = [
+  "granite-tsfm==0.3.9",
+  "mysql-connector-python>=9,<10",
 ]
 
 [tool.pytest.ini_options]

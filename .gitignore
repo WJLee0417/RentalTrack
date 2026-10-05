@@ -33,6 +33,7 @@ logs/
 ai/data/
 ai/models/
 ai/artifacts/
+ai/**/artifacts/
 
 # Uploaded files used during local development
 uploads/
