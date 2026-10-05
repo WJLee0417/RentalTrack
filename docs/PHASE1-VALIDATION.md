@@ -11,7 +11,7 @@
 test: accept mysql check constraint exception mapping
 ```
 
-GitHub Actions `Phase 1 Validation`의 네 번째 실행에서 MySQL 8.4 + Java 21 환경의 전체 검증이 통과했습니다.
+GitHub Actions `Backend Validation`의 네 번째 실행에서 MySQL 8.4 + Java 21 환경의 전체 검증이 통과했습니다.
 
 ## 검증 범위
 
@@ -64,7 +64,7 @@ ReturnInspection 계약당 1건
 
 ## GitHub Actions
 
-`.github/workflows/phase1-validation.yml`
+`.github/workflows/backend-validation.yml`
 
 - MySQL 8.4 service
 - Java 21
