@@ -6,70 +6,99 @@
 상품/지점 탐색
 → 대여 신청
 → 상품 인수
-→ 대여 전 상태 기록
-→ 상태 이미지 메타데이터 등록
+→ BEFORE_RENTAL 상태 기록
+→ BEFORE_RENTAL 이미지 메타데이터
 → 실제 이용 시작
+→ 반납
+→ AFTER_RENTAL 상태 기록
+→ AFTER_RENTAL 이미지 메타데이터
+→ DamageRecord 비교
+→ ReturnInspection
+→ 대여 완료
 ```
 
-## 상태 전이
-
-### RentalContract
+## RentalContract 상태
 
 ```text
 REQUESTED
 → APPROVED
 → PICKED_UP
 → IN_USE
+→ RETURNED
+→ INSPECTING
+→ COMPLETED
 ```
 
-### RentalProduct
+## RentalProduct 상태
 
 ```text
 AVAILABLE
 → RESERVED
 → RENTED
+→ INSPECTION
+→ AVAILABLE 또는 MAINTENANCE
 ```
 
-상품은 인수 시점부터 사용자의 점유 상태이므로 `RENTED`로 전환합니다. 다만 RentalContract는 대여 전 상태 기록이 끝날 때까지 `PICKED_UP`에 머무르며, 실제 이용 시작 API가 호출된 뒤 `IN_USE`로 전환됩니다.
+반납 시 상품의 `currentLocation`도 반납 지점으로 변경합니다.
 
-## API
+## 반납 이후 API
 
 ```text
-GET  /api/v1/locations
-GET  /api/v1/products?locationId=&categoryId=
+POST /api/v1/rentals/{id}/return
 
-POST /api/v1/rentals
-POST /api/v1/rentals/{id}/pickup
+POST /api/v1/rentals/{id}/conditions/after
+POST /api/v1/rentals/{id}/conditions/after/images
+GET  /api/v1/rentals/{id}/conditions/after
 
-POST /api/v1/rentals/{id}/conditions/before
-POST /api/v1/rentals/{id}/conditions/before/images
-GET  /api/v1/rentals/{id}/conditions/before
+POST /api/v1/rentals/{id}/damages/after
+POST /api/v1/rentals/{id}/damages/compare
+GET  /api/v1/rentals/{id}/damages/after
 
-POST /api/v1/rentals/{id}/start
-GET  /api/v1/rentals/{id}
+POST /api/v1/rentals/{id}/inspection
+GET  /api/v1/rentals/{id}/inspection
 ```
 
-## 실제 이용 시작 조건
+## DamageRecord 비교
 
-`POST /api/v1/rentals/{id}/start`는 다음 조건을 모두 만족해야 합니다.
+대여 전 손상은 `BASELINE`, 반납 후 입력된 손상은 처음에 `UNRESOLVED`로 저장합니다.
 
-- 계약 상태가 `PICKED_UP`
-- `BEFORE_RENTAL ConditionRecord` 존재
-- 해당 ConditionRecord에 이미지가 한 장 이상 존재
-- `dueAt`이 이용 시작 시각보다 미래
+비교 시 현재 MVP에서는 다음 두 값이 같은 경우 기존 손상으로 매칭합니다.
 
-이를 통해 상태 기록 없이 바로 이용 단계로 넘어가는 흐름을 차단합니다.
+```text
+damageType
++
+정규화된 damageLocation
+```
 
-## 이미지 저장 범위
+매칭되면:
 
-현재 Phase 2에서는 이미지 파일 자체를 업로드하지 않습니다.
+```text
+EXISTING
+→ matchedBeforeDamage 연결
+```
 
-Backend는 다음 메타데이터만 저장합니다.
+매칭되지 않으면:
 
-- `imageUrl`
-- `storageKey`
-- `captureOrder`
-- `viewpoint`
-- `capturedAt`
+```text
+NEW
+```
 
-Object Storage 업로드 및 presigned URL 발급은 Phase 3의 이미지 저장소 분리에서 구현합니다.
+이 비교는 손상 책임을 자동 확정하는 AI 판단이 아니라, 검수자가 확인할 후보를 정리하기 위한 규칙 기반 비교입니다.
+
+## ReturnInspection
+
+DamageRecord 비교가 끝나면 RentalContract는 `INSPECTING`으로 전환됩니다.
+
+최종 결과:
+
+```text
+NO_NEW_DAMAGE
+NEW_DAMAGE_CONFIRMED
+REVIEW_REQUIRED
+```
+
+- `NO_NEW_DAMAGE`: 계약 완료 + 상품 AVAILABLE
+- `NEW_DAMAGE_CONFIRMED`: 계약 완료 + 상품 MAINTENANCE
+- `REVIEW_REQUIRED`: 계약 INSPECTING + 상품 INSPECTION 유지
+
+`REVIEW_REQUIRED`로 저장된 검수 결과는 이후 최종 결과로 수정할 수 있습니다.

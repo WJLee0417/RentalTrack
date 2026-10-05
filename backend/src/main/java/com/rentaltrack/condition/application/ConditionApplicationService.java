@@ -1,5 +1,6 @@
 package com.rentaltrack.condition.application;
 
+import com.rentaltrack.condition.api.AfterConditionRequest;
 import com.rentaltrack.condition.api.BeforeConditionRequest;
 import com.rentaltrack.condition.api.ConditionImageRequest;
 import com.rentaltrack.condition.api.ConditionImageResponse;
@@ -41,29 +42,32 @@ public class ConditionApplicationService {
             Long rentalContractId,
             BeforeConditionRequest request
     ) {
-        RentalContract contract = rentalContractRepository.findByIdForUpdate(rentalContractId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Rental contract not found: " + rentalContractId
-                ));
+        RentalContract contract = lockedContract(rentalContractId);
+        requireStatus(contract, RentalContractStatus.PICKED_UP,
+                "BEFORE_RENTAL condition can be recorded only after pickup and before actual use");
 
-        requirePickedUp(contract);
-
-        if (conditionRecordRepository.existsByRentalContractIdAndRecordType(
-                rentalContractId,
-                ConditionRecordType.BEFORE_RENTAL
-        )) {
-            throw new IllegalStateException("BEFORE_RENTAL condition already exists");
-        }
-
-        ConditionRecord record = new ConditionRecord(
+        ConditionRecord saved = createCondition(
                 contract,
                 ConditionRecordType.BEFORE_RENTAL,
-                contract.getMember(),
-                request.summary(),
-                LocalDateTime.now()
+                request.summary()
         );
+        return ConditionRecordResponse.from(saved, List.of());
+    }
 
-        ConditionRecord saved = conditionRecordRepository.save(record);
+    @Transactional
+    public ConditionRecordResponse createAfterCondition(
+            Long rentalContractId,
+            AfterConditionRequest request
+    ) {
+        RentalContract contract = lockedContract(rentalContractId);
+        requireStatus(contract, RentalContractStatus.RETURNED,
+                "AFTER_RENTAL condition can be recorded only after return");
+
+        ConditionRecord saved = createCondition(
+                contract,
+                ConditionRecordType.AFTER_RENTAL,
+                request.summary()
+        );
         return ConditionRecordResponse.from(saved, List.of());
     }
 
@@ -72,19 +76,65 @@ public class ConditionApplicationService {
             Long rentalContractId,
             ConditionImageRequest request
     ) {
-        RentalContract contract = rentalContractRepository.findByIdForUpdate(rentalContractId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Rental contract not found: " + rentalContractId
-                ));
+        RentalContract contract = lockedContract(rentalContractId);
+        requireStatus(contract, RentalContractStatus.PICKED_UP,
+                "BEFORE_RENTAL images can be added only before actual use");
+        return addImage(rentalContractId, ConditionRecordType.BEFORE_RENTAL, request);
+    }
 
-        requirePickedUp(contract);
+    @Transactional
+    public ConditionImageResponse addAfterConditionImage(
+            Long rentalContractId,
+            ConditionImageRequest request
+    ) {
+        RentalContract contract = lockedContract(rentalContractId);
+        requireStatus(contract, RentalContractStatus.RETURNED,
+                "AFTER_RENTAL images can be added only before inspection begins");
+        return addImage(rentalContractId, ConditionRecordType.AFTER_RENTAL, request);
+    }
 
+    @Transactional(readOnly = true)
+    public ConditionRecordResponse getBeforeCondition(Long rentalContractId) {
+        return getCondition(rentalContractId, ConditionRecordType.BEFORE_RENTAL);
+    }
+
+    @Transactional(readOnly = true)
+    public ConditionRecordResponse getAfterCondition(Long rentalContractId) {
+        return getCondition(rentalContractId, ConditionRecordType.AFTER_RENTAL);
+    }
+
+    private ConditionRecord createCondition(
+            RentalContract contract,
+            ConditionRecordType type,
+            String summary
+    ) {
+        if (conditionRecordRepository.existsByRentalContractIdAndRecordType(
+                contract.getId(),
+                type
+        )) {
+            throw new IllegalStateException(type + " condition already exists");
+        }
+
+        return conditionRecordRepository.save(new ConditionRecord(
+                contract,
+                type,
+                contract.getMember(),
+                summary,
+                LocalDateTime.now()
+        ));
+    }
+
+    private ConditionImageResponse addImage(
+            Long rentalContractId,
+            ConditionRecordType type,
+            ConditionImageRequest request
+    ) {
         ConditionRecord record = conditionRecordRepository.findByRentalContractIdAndRecordType(
                         rentalContractId,
-                        ConditionRecordType.BEFORE_RENTAL
+                        type
                 )
                 .orElseThrow(() -> new IllegalStateException(
-                        "Create BEFORE_RENTAL condition before adding images"
+                        "Create " + type + " condition before adding images"
                 ));
 
         ConditionImage image = new ConditionImage(
@@ -99,14 +149,16 @@ public class ConditionApplicationService {
         return ConditionImageResponse.from(conditionImageRepository.save(image));
     }
 
-    @Transactional(readOnly = true)
-    public ConditionRecordResponse getBeforeCondition(Long rentalContractId) {
+    private ConditionRecordResponse getCondition(
+            Long rentalContractId,
+            ConditionRecordType type
+    ) {
         ConditionRecord record = conditionRecordRepository.findByRentalContractIdAndRecordType(
                         rentalContractId,
-                        ConditionRecordType.BEFORE_RENTAL
+                        type
                 )
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "BEFORE_RENTAL condition not found for rental: " + rentalContractId
+                        type + " condition not found for rental: " + rentalContractId
                 ));
 
         List<ConditionImage> images =
@@ -115,11 +167,20 @@ public class ConditionApplicationService {
         return ConditionRecordResponse.from(record, images);
     }
 
-    private void requirePickedUp(RentalContract contract) {
-        if (contract.getStatus() != RentalContractStatus.PICKED_UP) {
-            throw new IllegalStateException(
-                    "BEFORE_RENTAL condition can be recorded only after pickup and before actual use"
-            );
+    private RentalContract lockedContract(Long rentalContractId) {
+        return rentalContractRepository.findByIdForUpdate(rentalContractId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Rental contract not found: " + rentalContractId
+                ));
+    }
+
+    private void requireStatus(
+            RentalContract contract,
+            RentalContractStatus expected,
+            String message
+    ) {
+        if (contract.getStatus() != expected) {
+            throw new IllegalStateException(message);
         }
     }
 }

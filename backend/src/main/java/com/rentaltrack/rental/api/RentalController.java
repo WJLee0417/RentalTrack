@@ -40,6 +40,14 @@ public class RentalController {
         return rentalApplicationService.startActualUse(rentalContractId, request);
     }
 
+    @PostMapping("/{rentalContractId}/return")
+    public RentalResponse returnRental(
+            @PathVariable Long rentalContractId,
+            @Valid @RequestBody ReturnRequest request
+    ) {
+        return rentalApplicationService.returnRental(rentalContractId, request);
+    }
+
     @GetMapping("/{rentalContractId}")
     public RentalResponse getRental(@PathVariable Long rentalContractId) {
         return rentalApplicationService.getRental(rentalContractId);

@@ -13,6 +13,7 @@ import com.rentaltrack.product.domain.RentalProduct;
 import com.rentaltrack.product.repository.RentalProductRepository;
 import com.rentaltrack.rental.api.RentalRequest;
 import com.rentaltrack.rental.api.RentalResponse;
+import com.rentaltrack.rental.api.ReturnRequest;
 import com.rentaltrack.rental.api.StartRentalRequest;
 import com.rentaltrack.rental.domain.RentalContract;
 import com.rentaltrack.rental.repository.RentalContractRepository;
@@ -140,6 +141,36 @@ public class RentalApplicationService {
 
         LocalDateTime now = LocalDateTime.now();
         contract.startRental(now, request.dueAt());
+
+        return RentalResponse.from(contract);
+    }
+
+    @Transactional
+    public RentalResponse returnRental(Long rentalContractId, ReturnRequest request) {
+        RentalContract contract = rentalContractRepository.findByIdForUpdate(rentalContractId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Rental contract not found: " + rentalContractId
+                ));
+
+        RentalLocation returnLocation = rentalLocationRepository.findById(request.returnLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Rental location not found: " + request.returnLocationId()
+                ));
+
+        if (!returnLocation.isActive()) {
+            throw new IllegalStateException("Inactive rental location cannot accept returns");
+        }
+
+        RentalProduct product = rentalProductRepository.findByIdForUpdate(
+                        contract.getRentalProduct().getId()
+                )
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Rental product not found: " + contract.getRentalProduct().getId()
+                ));
+
+        LocalDateTime now = LocalDateTime.now();
+        contract.markReturned(returnLocation, now);
+        product.markReturned(returnLocation);
 
         return RentalResponse.from(contract);
     }

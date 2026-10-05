@@ -115,6 +115,30 @@ public class RentalContract extends BaseTimeEntity {
         this.dueAt = dueAt;
     }
 
+    public void markReturned(RentalLocation returnLocation, LocalDateTime returnedAt) {
+        requireStatus(RentalContractStatus.IN_USE, "Only IN_USE rentals can be returned");
+        if (returnLocation == null || !returnLocation.isActive()) {
+            throw new IllegalArgumentException("Return location must be active");
+        }
+        if (returnedAt == null || returnedAt.isBefore(rentedAt)) {
+            throw new IllegalArgumentException("returnedAt must not be before rentedAt");
+        }
+        this.returnLocation = returnLocation;
+        this.returnedAt = returnedAt;
+        this.status = RentalContractStatus.RETURNED;
+    }
+
+    public void beginInspection() {
+        requireStatus(RentalContractStatus.RETURNED, "Only RETURNED rentals can enter inspection");
+        this.status = RentalContractStatus.INSPECTING;
+    }
+
+    public void completeInspection(LocalDateTime completedAt) {
+        requireStatus(RentalContractStatus.INSPECTING, "Only INSPECTING rentals can be completed");
+        this.status = RentalContractStatus.COMPLETED;
+        this.completedAt = completedAt;
+    }
+
     private void requireStatus(RentalContractStatus expected, String message) {
         if (this.status != expected) {
             throw new IllegalStateException(message);

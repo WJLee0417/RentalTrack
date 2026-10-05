@@ -12,12 +12,16 @@ public record RentalResponse(
         String productName,
         Long pickupLocationId,
         String pickupLocationName,
+        Long returnLocationId,
+        String returnLocationName,
         String status,
         LocalDateTime requestedAt,
         LocalDateTime approvedAt,
         LocalDateTime pickedUpAt,
         LocalDateTime rentedAt,
-        LocalDateTime dueAt
+        LocalDateTime dueAt,
+        LocalDateTime returnedAt,
+        LocalDateTime completedAt
 ) {
     public static RentalResponse from(RentalContract contract) {
         return new RentalResponse(
@@ -28,12 +32,16 @@ public record RentalResponse(
                 contract.getRentalProduct().getDisplayName(),
                 contract.getPickupLocation().getId(),
                 contract.getPickupLocation().getName(),
+                contract.getReturnLocation() == null ? null : contract.getReturnLocation().getId(),
+                contract.getReturnLocation() == null ? null : contract.getReturnLocation().getName(),
                 contract.getStatus().name(),
                 contract.getRequestedAt(),
                 contract.getApprovedAt(),
                 contract.getPickedUpAt(),
                 contract.getRentedAt(),
-                contract.getDueAt()
+                contract.getDueAt(),
+                contract.getReturnedAt(),
+                contract.getCompletedAt()
         );
     }
 }

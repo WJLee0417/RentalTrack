@@ -71,6 +71,22 @@ public class RentalProduct extends BaseTimeEntity {
         this.status = RentalProductStatus.RENTED;
     }
 
+    public void markReturned(RentalLocation returnLocation) {
+        requireStatus(RentalProductStatus.RENTED, "Only RENTED products can be returned");
+        if (returnLocation == null || !returnLocation.isActive()) {
+            throw new IllegalArgumentException("Return location must be active");
+        }
+        this.currentLocation = returnLocation;
+        this.status = RentalProductStatus.INSPECTION;
+    }
+
+    public void completeInspection(boolean maintenanceRequired) {
+        requireStatus(RentalProductStatus.INSPECTION, "Only INSPECTION products can complete inspection");
+        this.status = maintenanceRequired
+                ? RentalProductStatus.MAINTENANCE
+                : RentalProductStatus.AVAILABLE;
+    }
+
     private void requireStatus(RentalProductStatus expected, String message) {
         if (this.status != expected) {
             throw new IllegalStateException(message);
