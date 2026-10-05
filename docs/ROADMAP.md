@@ -69,3 +69,13 @@
 - [x] inventory_recommendation 운영자 조회 API
 
 - [x] inventory_recommendation ACCEPTED / DISMISSED 운영자 의사결정 API
+
+## Phase 5 — Operator Dashboard
+
+- [x] AI 운영 Dashboard 집계 API
+- [x] 최신 모델 / 모델 성능 비교 표시
+- [x] 미처리 recommendation 위험도 집계
+- [x] 우선 검토 recommendation 목록
+- [x] React 운영자 Dashboard 화면
+- [x] Dashboard에서 ACCEPTED / DISMISSED 처리
+- [x] Frontend build validation

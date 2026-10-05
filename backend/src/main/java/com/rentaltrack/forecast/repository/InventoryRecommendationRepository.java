@@ -56,4 +56,20 @@ public interface InventoryRecommendationRepository extends JpaRepository<Invento
     })
     @Query("select ir from InventoryRecommendation ir where ir.id = :id")
     Optional<InventoryRecommendation> findDetailByIdForUpdate(@Param("id") Long id);
+
+    long countByStatus(RecommendationStatus status);
+
+    long countByStatusAndRiskLevel(
+            RecommendationStatus status,
+            RiskLevel riskLevel
+    );
+
+    @Query("""
+            select coalesce(sum(ir.recommendedAdditionalQuantity), 0)
+            from InventoryRecommendation ir
+            where ir.status = :status
+            """)
+    Long sumRecommendedAdditionalQuantityByStatus(
+            @Param("status") RecommendationStatus status
+    );
 }

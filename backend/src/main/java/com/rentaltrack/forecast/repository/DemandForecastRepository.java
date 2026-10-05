@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 public interface DemandForecastRepository extends JpaRepository<DemandForecast, Long> {
@@ -30,4 +31,13 @@ public interface DemandForecastRepository extends JpaRepository<DemandForecast, 
     @EntityGraph(attributePaths = {"modelRun", "rentalLocation", "productCategory"})
     @Query("select df from DemandForecast df where df.id = :id")
     Optional<DemandForecast> findDetailById(@Param("id") Long id);
+
+    @Query("""
+            select coalesce(sum(df.predictedDemand), 0)
+            from DemandForecast df
+            where df.modelRun.id = :modelRunId
+            """)
+    BigDecimal sumPredictedDemandByModelRunId(@Param("modelRunId") Long modelRunId);
+
+    long countByModelRunId(Long modelRunId);
 }

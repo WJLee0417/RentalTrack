@@ -155,3 +155,47 @@ USER 접근
 
 현재 API는 추천을 승인하거나 기각하는 운영자 판단을 기록합니다.
 승인 이후 상품 재배치 자체를 자동 실행하지는 않습니다.
+
+
+## Dashboard aggregate
+
+운영자 화면의 초기 로딩에서 여러 조회 API를 조합하지 않도록 Dashboard 집계 API를 제공합니다.
+
+```text
+GET /api/v1/operator/ai/dashboard
+```
+
+응답은 다음 정보를 한 번에 제공합니다.
+
+```text
+datasetVersion
+
+latestModel
+- modelRunId
+- modelName
+- modelVersion
+- runType
+- mae
+- rmse
+- completedAt
+
+forecast
+- seriesCount
+- predictedDemand
+
+recommendations
+- openCount
+- highRiskOpenCount
+- mediumRiskOpenCount
+- lowRiskOpenCount
+- recommendedAdditionalQuantity
+
+modelComparison[]
+priorityRecommendations[]
+```
+
+`modelComparison`은 최근 성공 실행의 datasetVersion과 같은 성공 모델 실행을 비교합니다.
+
+`priorityRecommendations`는 OPEN recommendation 중 위험도와 추가 필요 수량을 기준으로 우선 검토할 상위 5건을 반환합니다.
+
+성공한 model_run이 아직 없다면 404 대신 빈 Dashboard 응답을 반환해 Frontend가 초기 상태를 표현할 수 있도록 합니다.

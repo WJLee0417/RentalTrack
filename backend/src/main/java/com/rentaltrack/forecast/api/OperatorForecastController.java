@@ -1,6 +1,7 @@
 package com.rentaltrack.forecast.api;
 
 import com.rentaltrack.access.application.AccessControlService;
+import com.rentaltrack.forecast.application.OperatorAiDashboardService;
 import com.rentaltrack.forecast.application.OperatorForecastQueryService;
 import com.rentaltrack.forecast.application.OperatorRecommendationDecisionService;
 import com.rentaltrack.forecast.domain.ModelRunStatus;
@@ -29,18 +30,29 @@ import java.util.Locale;
 @RequestMapping("/api/v1/operator/ai")
 public class OperatorForecastController {
 
+    private final OperatorAiDashboardService operatorAiDashboardService;
     private final OperatorForecastQueryService operatorForecastQueryService;
     private final OperatorRecommendationDecisionService operatorRecommendationDecisionService;
     private final AccessControlService accessControlService;
 
     public OperatorForecastController(
+            OperatorAiDashboardService operatorAiDashboardService,
             OperatorForecastQueryService operatorForecastQueryService,
             OperatorRecommendationDecisionService operatorRecommendationDecisionService,
             AccessControlService accessControlService
     ) {
+        this.operatorAiDashboardService = operatorAiDashboardService;
         this.operatorForecastQueryService = operatorForecastQueryService;
         this.operatorRecommendationDecisionService = operatorRecommendationDecisionService;
         this.accessControlService = accessControlService;
+    }
+
+    @GetMapping("/dashboard")
+    public OperatorAiDashboardResponse getDashboard(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId
+    ) {
+        accessControlService.requireOperator(actorId);
+        return operatorAiDashboardService.getDashboard();
     }
 
     @GetMapping("/model-runs")
