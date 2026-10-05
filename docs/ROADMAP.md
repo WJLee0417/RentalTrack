@@ -30,9 +30,11 @@
 - [x] Flyway V5 inspection schema
 
 ### Phase 1 verification
-- [ ] 전체 Flyway migration 실행 검증
-- [ ] Entity ↔ Flyway `ddl-auto=validate` 검증
-- [ ] 핵심 DB 제약조건 integration test
+- [x] 전체 Flyway migration 실행 검증
+- [x] Entity ↔ Flyway `ddl-auto=validate` 검증
+- [x] 핵심 DB 제약조건 integration test
+- [x] GitHub Actions 자동 검증
+- [x] GitLab CI 설정 파일 구성
 
 ## Phase 2 — Core Web Flow
 
