@@ -64,3 +64,6 @@
 - [x] 품절 위험 계산
 - [x] 운영자 재고 보충 추천
 - [x] 시간순 평가 및 MAE/RMSE 비교
+- [x] model_run 운영자 조회 API
+- [x] demand_forecast 운영자 조회 API
+- [x] inventory_recommendation 운영자 조회 API
