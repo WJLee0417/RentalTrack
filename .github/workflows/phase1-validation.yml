@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -58,4 +58,12 @@ jobs:
       - name: Validate Flyway, JPA mapping and Phase 1 constraints
         run: |
           chmod +x gradlew
-          ./gradlew clean test --no-daemon
+          ./gradlew clean test --no-daemon --stacktrace
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-test-report
+          path: backend/build/reports/tests/test/
+          if-no-files-found: ignore

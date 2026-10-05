@@ -24,8 +24,6 @@ CREATE TABLE damage_record (
         CHECK (severity IN ('MINOR', 'MODERATE', 'SEVERE')),
     CONSTRAINT ck_damage_record_comparison_result
         CHECK (comparison_result IN ('BASELINE', 'UNRESOLVED', 'EXISTING', 'NEW')),
-    CONSTRAINT ck_damage_record_not_self_match
-        CHECK (matched_before_damage_id IS NULL OR matched_before_damage_id <> id),
 
     INDEX idx_damage_record_condition (condition_record_id),
     INDEX idx_damage_record_condition_result (condition_record_id, comparison_result)

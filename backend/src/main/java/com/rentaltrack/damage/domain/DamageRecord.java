@@ -69,6 +69,12 @@ public class DamageRecord extends BaseTimeEntity {
     }
 
     public void markExisting(DamageRecord beforeDamage) {
+        if (beforeDamage == null) {
+            throw new IllegalArgumentException("beforeDamage must not be null");
+        }
+        if (beforeDamage == this || (id != null && id.equals(beforeDamage.id))) {
+            throw new IllegalArgumentException("damage record cannot match itself");
+        }
         this.comparisonResult = DamageComparisonResult.EXISTING;
         this.matchedBeforeDamage = beforeDamage;
     }

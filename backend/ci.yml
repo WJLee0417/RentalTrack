@@ -29,20 +29,20 @@ phase1-backend-validation:
     - cd backend
     - chmod +x gradlew
     - |
-      for i in $(seq 1 60); do
-        if (echo > /dev/tcp/mysql/3306) >/dev/null 2>&1; then
-          echo "MySQL is reachable"
-          break
-        fi
-        if [ "$i" -eq 60 ]; then
-          echo "MySQL did not become reachable"
-          exit 1
-        fi
-        sleep 2
-      done
+      bash -c '
+        for i in $(seq 1 60); do
+          if (echo > /dev/tcp/mysql/3306) >/dev/null 2>&1; then
+            echo "MySQL is reachable"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "MySQL did not become reachable"
+        exit 1
+      '
 
   script:
-    - ./gradlew clean test --no-daemon
+    - ./gradlew clean test --no-daemon --stacktrace
 
   artifacts:
     when: always
