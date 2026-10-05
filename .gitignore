@@ -1,9 +1,38 @@
-ai/anomaly_detection/jetson_deploy/damage_check_v1/weights/
+# Environment
+.env
+.env.*
+!.env.example
 
-# AI model artifacts
+# Java / Gradle
+.gradle/
+**/build/
+*.class
+
+# Node
+**/node_modules/
+**/dist/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# AI / Data artifacts
 *.onnx
 *.pt
 *.pth
 *.engine
 *.weights
 **/weights/
+ai/data/
+ai/models/
+ai/artifacts/
+
+# Uploaded files used during local development
+uploads/

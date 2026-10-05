@@ -1,21 +1,18 @@
-import { RouterProvider } from 'react-router-dom';
-
-import { AppProviders } from '@/app/AppProviders';
-import { ErrorBoundary } from '@/app/ErrorBoundary';
-import { router } from '@/app/router';
-import { Toaster } from '@/shared/components/toast/Toaster';
-
-function App() {
-    return (
-        // 오류 경계가 가장 바깥입니다. 라우터·Query 프로바이더에서 나는 예외까지 잡습니다.
-        <ErrorBoundary>
-            <AppProviders>
-                <RouterProvider router={router} />
-                {/* 라우트 밖에 둡니다. 로그인 화면에서도 알림이 떠야 합니다. */}
-                <Toaster />
-            </AppProviders>
-        </ErrorBoundary>
-    );
+export default function App() {
+  return (
+    <main className="page">
+      <section className="hero">
+        <span className="eyebrow">RentalTrack Web v1</span>
+        <h1>필요한 순간, 가까운 곳에서 빌리세요.</h1>
+        <p>
+          이동 중 갑자기 필요한 생활용품을 찾고 대여하며,
+          대여 전·후 상품 상태와 손상 이력을 함께 관리하는 렌탈 서비스입니다.
+        </p>
+        <div className="status-card">
+          <strong>현재 단계</strong>
+          <span>프로젝트 뼈대 재구축 · 도메인 설계 진행 중</span>
+        </div>
+      </section>
+    </main>
+  );
 }
-
-export default App;
