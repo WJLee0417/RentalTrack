@@ -2,26 +2,33 @@
 
 RentalTrack의 AI는 이미지 손상 판정을 핵심으로 두지 않습니다.
 
-## 목표
+## Phase 4
 
-대여 이력이 축적된 뒤 다음 문제를 해결합니다.
+현재 구현 방향은 지점별 상품 수요 예측과 재고 보충 의사결정 지원입니다.
 
-> 지점별로 어떤 상품이 언제 부족해질 가능성이 높은가?
+```text
+Rental history
+→ Historical Average baseline
+→ Granite TTM-R3 zero-shot
+→ chronological evaluation
+→ demand forecast
+→ replenishment rule
+→ operator decision
+```
 
-예상 입력:
+구현 위치:
 
-- 지점
-- 상품 카테고리
-- 시간대 / 요일
-- 최근 대여량
-- 현재 재고
-- 날씨
-- 지점 특성
+```text
+ai/demand_forecasting/
+```
 
-예상 출력:
+자세한 실행 방법은 [demand_forecasting/README.md](./demand_forecasting/README.md)를 참고합니다.
 
-- 다음 시간대의 지점 × 상품 수요
-- 품절 위험도
-- 운영자용 재고 보충 우선순위
+## 원칙
 
-초기 Web MVP에서는 AI 없이 서비스 데이터를 안정적으로 수집하는 것을 우선합니다.
+- 합성 데이터는 실제 수요라고 표현하지 않습니다.
+- TTM-R3는 먼저 zero-shot으로 검증합니다.
+- Historical Average를 반드시 baseline으로 둡니다.
+- 랜덤 train/test split 대신 시간순 평가를 사용합니다.
+- AI는 수요를 예측하고, 보충 수량은 별도 rule로 계산합니다.
+- 운영자가 최종 판단합니다.

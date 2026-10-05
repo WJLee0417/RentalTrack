@@ -1,0 +1,49 @@
+name: AI Validation
+
+on:
+  push:
+    branches:
+      - refactor/rentaltrack-web-skeleton
+    paths:
+      - "ai/demand_forecasting/**"
+      - ".github/workflows/ai-validation.yml"
+  pull_request:
+    paths:
+      - "ai/demand_forecasting/**"
+      - ".github/workflows/ai-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  ai-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ai/demand_forecasting
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai/demand_forecasting/pyproject.toml
+
+      - name: Install baseline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run AI unit tests
+        run: pytest -q
+
+      - name: Run synthetic baseline smoke test
+        run: |
+          python -m rentaltrack_ai.data.synthetic             --output artifacts/synthetic_rental_history.csv             --periods 336             --seed 42
+
+          python -m rentaltrack_ai.pipeline             --input artifacts/synthetic_rental_history.csv             --model baseline             --output artifacts/baseline_forecast.csv
+
+          test -s artifacts/baseline_forecast.csv
