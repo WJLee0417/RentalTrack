@@ -90,6 +90,28 @@ public class RentalContract extends BaseTimeEntity {
         this.status = RentalContractStatus.REQUESTED;
     }
 
+    public void approve(LocalDateTime approvedAt) {
+        requireStatus(RentalContractStatus.REQUESTED, "Only REQUESTED rentals can be approved");
+        this.status = RentalContractStatus.APPROVED;
+        this.approvedAt = approvedAt;
+    }
+
+    public void startRental(LocalDateTime rentedAt, LocalDateTime dueAt) {
+        requireStatus(RentalContractStatus.APPROVED, "Only APPROVED rentals can be picked up");
+        if (dueAt == null || !dueAt.isAfter(rentedAt)) {
+            throw new IllegalArgumentException("dueAt must be after rentedAt");
+        }
+        this.status = RentalContractStatus.IN_USE;
+        this.rentedAt = rentedAt;
+        this.dueAt = dueAt;
+    }
+
+    private void requireStatus(RentalContractStatus expected, String message) {
+        if (this.status != expected) {
+            throw new IllegalStateException(message);
+        }
+    }
+
     public Long getId() {
         return id;
     }

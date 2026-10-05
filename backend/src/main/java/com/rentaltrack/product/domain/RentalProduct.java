@@ -61,6 +61,22 @@ public class RentalProduct extends BaseTimeEntity {
         this.status = RentalProductStatus.AVAILABLE;
     }
 
+    public void reserve() {
+        requireStatus(RentalProductStatus.AVAILABLE, "Only AVAILABLE products can be reserved");
+        this.status = RentalProductStatus.RESERVED;
+    }
+
+    public void startRental() {
+        requireStatus(RentalProductStatus.RESERVED, "Only RESERVED products can start rental");
+        this.status = RentalProductStatus.RENTED;
+    }
+
+    private void requireStatus(RentalProductStatus expected, String message) {
+        if (this.status != expected) {
+            throw new IllegalStateException(message);
+        }
+    }
+
     public Long getId() {
         return id;
     }
