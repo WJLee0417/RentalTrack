@@ -10,15 +10,20 @@
 
 ## Phase 1 — Domain
 
+### Core domain
+- [x] RentalLocation ERD / Entity
+- [x] ProductCategory ERD / Entity
+- [x] RentalProduct ERD / Entity
+- [x] RentalContract ERD / Entity
+- [x] Flyway V1 core schema
+
+### Next domain
 - [ ] Member
-- [ ] RentalLocation
-- [ ] ProductCategory
-- [ ] RentalProduct
-- [ ] RentalContract
 - [ ] ConditionRecord / ConditionImage
 - [ ] DamageRecord
 - [ ] ReturnInspection
-- [ ] Flyway V1 ERD 반영
+- [ ] Member FK migration
+- [ ] Phase 1 전체 schema integration test
 
 ## Phase 2 — Core Web Flow
 
@@ -35,7 +40,7 @@
 
 - [ ] API validation
 - [ ] 핵심 상태 전이 테스트
-- [ ] DB 제약조건
+- [ ] DB 제약조건 테스트
 - [ ] 통합 테스트
 - [ ] 사용자/운영자 권한 분리
 - [ ] 이미지 저장소 분리
