@@ -77,6 +77,7 @@ erDiagram
         VARCHAR status
         DATETIME requested_at
         DATETIME approved_at
+        DATETIME picked_up_at
         DATETIME rented_at
         DATETIME due_at
         DATETIME returned_at
@@ -181,6 +182,7 @@ RETIRED
 ```text
 REQUESTED
 → APPROVED
+→ PICKED_UP
 → IN_USE
 → RETURNED
 → INSPECTING
@@ -314,6 +316,8 @@ FK는 `ON DELETE RESTRICT`를 사용합니다.
 Member
   ↓
 RentalContract
+  ↓
+PICKED_UP
   ↓
 BEFORE_RENTAL ConditionRecord
   ├─ ConditionImage[]
