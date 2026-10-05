@@ -87,3 +87,33 @@ X-Actor-Id
 ```
 
 이 방식은 Phase 3의 권한 정책을 구현·검증하기 위한 임시 인증 경계입니다. 운영용 인증에서는 JWT/OAuth 등의 인증 결과에서 actor identity를 공급하도록 교체해야 합니다.
+
+
+## 5. 이미지 저장소 분리
+
+ConditionImage가 외부 URL을 직접 소유하지 않도록 변경했습니다.
+
+```text
+Multipart image upload
+→ ConditionImageStorageService
+→ ImageStorage port
+→ LocalFileImageStorage adapter
+→ storageKey 반환
+→ ConditionImage metadata 저장
+```
+
+DB에는 파일 자체와 공개 URL을 저장하지 않고 다음 메타데이터만 유지합니다.
+
+- storageKey
+- originalFilename
+- contentType
+- fileSize
+- captureOrder
+- viewpoint
+- capturedAt
+
+조회 응답의 `contentPath`는 저장된 URL이 아니라 API 경로를 동적으로 구성합니다. 따라서 저장소를 S3, MinIO 등으로 교체해도 ConditionImage 도메인과 DB 구조는 유지할 수 있습니다.
+
+현재 구현은 로컬 파일 시스템 어댑터를 기본으로 사용합니다. 저장 루트는 `RENTALTRACK_STORAGE_ROOT`, 이미지 최대 크기는 `RENTALTRACK_MAX_IMAGE_BYTES`로 변경할 수 있습니다.
+
+허용 형식은 JPEG, PNG, WEBP이며 기본 최대 크기는 10MB입니다. DB 트랜잭션이 롤백될 경우 같은 요청에서 저장된 파일도 정리하도록 rollback cleanup을 연결했습니다.

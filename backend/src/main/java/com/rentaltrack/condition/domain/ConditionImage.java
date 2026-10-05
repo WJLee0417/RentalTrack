@@ -24,11 +24,17 @@ public class ConditionImage {
     @JoinColumn(name = "condition_record_id", nullable = false)
     private ConditionRecord conditionRecord;
 
-    @Column(name = "image_url", nullable = false, length = 1000)
-    private String imageUrl;
-
     @Column(name = "storage_key", nullable = false, unique = true, length = 500)
     private String storageKey;
+
+    @Column(name = "original_filename", length = 255)
+    private String originalFilename;
+
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
 
     @Column(name = "capture_order", nullable = false)
     private int captureOrder;
@@ -47,15 +53,19 @@ public class ConditionImage {
 
     public ConditionImage(
             ConditionRecord conditionRecord,
-            String imageUrl,
             String storageKey,
+            String originalFilename,
+            String contentType,
+            Long fileSize,
             int captureOrder,
             String viewpoint,
             LocalDateTime capturedAt
     ) {
         this.conditionRecord = conditionRecord;
-        this.imageUrl = imageUrl;
         this.storageKey = storageKey;
+        this.originalFilename = originalFilename;
+        this.contentType = contentType;
+        this.fileSize = fileSize;
         this.captureOrder = captureOrder;
         this.viewpoint = viewpoint;
         this.capturedAt = capturedAt;
@@ -74,12 +84,20 @@ public class ConditionImage {
         return conditionRecord;
     }
 
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
     public String getStorageKey() {
         return storageKey;
+    }
+
+    public String getOriginalFilename() {
+        return originalFilename;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
     }
 
     public int getCaptureOrder() {

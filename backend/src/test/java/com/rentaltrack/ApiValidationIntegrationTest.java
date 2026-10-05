@@ -1,6 +1,6 @@
 package com.rentaltrack;
 
-import com.rentaltrack.condition.api.ConditionImageRequest;
+import com.rentaltrack.condition.api.ConditionImageMetadataRequest;
 import com.rentaltrack.rental.api.RentalRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -32,18 +32,16 @@ class ApiValidationIntegrationTest {
 
     @Test
     void conditionImageRejectsFutureCaptureAndInvalidMetadata() {
-        ConditionImageRequest request = new ConditionImageRequest(
-                " ",
-                " ",
+        ConditionImageMetadataRequest request = new ConditionImageMetadataRequest(
                 0,
                 "V".repeat(31),
                 LocalDateTime.now().plusMinutes(10)
         );
 
-        Set<ConstraintViolation<ConditionImageRequest>> violations = validator.validate(request);
+        Set<ConstraintViolation<ConditionImageMetadataRequest>> violations = validator.validate(request);
 
         assertThat(violations)
                 .extracting(violation -> violation.getPropertyPath().toString())
-                .contains("imageUrl", "storageKey", "captureOrder", "viewpoint", "capturedAt");
+                .contains("captureOrder", "viewpoint", "capturedAt");
     }
 }

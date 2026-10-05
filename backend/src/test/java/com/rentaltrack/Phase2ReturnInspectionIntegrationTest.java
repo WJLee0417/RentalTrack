@@ -3,7 +3,7 @@ package com.rentaltrack;
 import com.rentaltrack.catalog.application.CatalogService;
 import com.rentaltrack.condition.api.AfterConditionRequest;
 import com.rentaltrack.condition.api.BeforeConditionRequest;
-import com.rentaltrack.condition.api.ConditionImageRequest;
+import com.rentaltrack.condition.api.ConditionImageMetadataRequest;
 import com.rentaltrack.condition.application.ConditionApplicationService;
 import com.rentaltrack.damage.api.DamageCreateRequest;
 import com.rentaltrack.damage.api.DamageResponse;
@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -119,13 +120,12 @@ class Phase2ReturnInspectionIntegrationTest {
         );
         conditionApplicationService.addAfterConditionImage(
                 rental.id(),
-                new ConditionImageRequest(
-                        "https://cdn.example.com/" + shortId() + ".jpg",
-                        "after/" + shortId() + ".jpg",
+                new ConditionImageMetadataRequest(
                         1,
                         "FRONT",
                         LocalDateTime.now()
-                )
+                ),
+                imageFile("after.jpg")
         );
 
         damageApplicationService.addAfterDamage(
@@ -181,13 +181,12 @@ class Phase2ReturnInspectionIntegrationTest {
         );
         conditionApplicationService.addAfterConditionImage(
                 rental.id(),
-                new ConditionImageRequest(
-                        "https://cdn.example.com/" + shortId() + ".jpg",
-                        "after/" + shortId() + ".jpg",
+                new ConditionImageMetadataRequest(
                         1,
                         "FRONT",
                         LocalDateTime.now()
-                )
+                ),
+                imageFile("after.jpg")
         );
         damageApplicationService.addAfterDamage(
                 rental.id(),
@@ -227,13 +226,12 @@ class Phase2ReturnInspectionIntegrationTest {
         );
         conditionApplicationService.addBeforeConditionImage(
                 requested.id(),
-                new ConditionImageRequest(
-                        "https://cdn.example.com/" + shortId() + ".jpg",
-                        "before/" + shortId() + ".jpg",
+                new ConditionImageMetadataRequest(
                         1,
                         "FRONT",
                         LocalDateTime.now()
-                )
+                ),
+                imageFile("before.jpg")
         );
 
         damageApplicationService.addBeforeDamage(
@@ -249,6 +247,15 @@ class Phase2ReturnInspectionIntegrationTest {
         return rentalApplicationService.startActualUse(
                 requested.id(),
                 new StartRentalRequest(LocalDateTime.now().plusHours(2))
+        );
+    }
+
+    private MockMultipartFile imageFile(String name) {
+        return new MockMultipartFile(
+                "file",
+                name,
+                "image/jpeg",
+                ("image-" + shortId()).getBytes()
         );
     }
 

@@ -2,7 +2,7 @@ package com.rentaltrack.condition.application;
 
 import com.rentaltrack.condition.api.AfterConditionRequest;
 import com.rentaltrack.condition.api.BeforeConditionRequest;
-import com.rentaltrack.condition.api.ConditionImageRequest;
+import com.rentaltrack.condition.api.ConditionImageMetadataRequest;
 import com.rentaltrack.condition.api.ConditionImageResponse;
 import com.rentaltrack.condition.api.ConditionRecordResponse;
 import com.rentaltrack.condition.domain.ConditionImage;
@@ -14,8 +14,11 @@ import com.rentaltrack.global.error.ResourceNotFoundException;
 import com.rentaltrack.rental.domain.RentalContract;
 import com.rentaltrack.rental.domain.RentalContractStatus;
 import com.rentaltrack.rental.repository.RentalContractRepository;
+import com.rentaltrack.storage.application.ConditionImageStorageService;
+import com.rentaltrack.storage.application.StoredImage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,15 +29,18 @@ public class ConditionApplicationService {
     private final RentalContractRepository rentalContractRepository;
     private final ConditionRecordRepository conditionRecordRepository;
     private final ConditionImageRepository conditionImageRepository;
+    private final ConditionImageStorageService conditionImageStorageService;
 
     public ConditionApplicationService(
             RentalContractRepository rentalContractRepository,
             ConditionRecordRepository conditionRecordRepository,
-            ConditionImageRepository conditionImageRepository
+            ConditionImageRepository conditionImageRepository,
+            ConditionImageStorageService conditionImageStorageService
     ) {
         this.rentalContractRepository = rentalContractRepository;
         this.conditionRecordRepository = conditionRecordRepository;
         this.conditionImageRepository = conditionImageRepository;
+        this.conditionImageStorageService = conditionImageStorageService;
     }
 
     @Transactional
@@ -74,23 +80,25 @@ public class ConditionApplicationService {
     @Transactional
     public ConditionImageResponse addBeforeConditionImage(
             Long rentalContractId,
-            ConditionImageRequest request
+            ConditionImageMetadataRequest metadata,
+            MultipartFile file
     ) {
         RentalContract contract = lockedContract(rentalContractId);
         requireStatus(contract, RentalContractStatus.PICKED_UP,
                 "BEFORE_RENTAL images can be added only before actual use");
-        return addImage(rentalContractId, ConditionRecordType.BEFORE_RENTAL, request);
+        return addImage(rentalContractId, ConditionRecordType.BEFORE_RENTAL, metadata, file);
     }
 
     @Transactional
     public ConditionImageResponse addAfterConditionImage(
             Long rentalContractId,
-            ConditionImageRequest request
+            ConditionImageMetadataRequest metadata,
+            MultipartFile file
     ) {
         RentalContract contract = lockedContract(rentalContractId);
         requireStatus(contract, RentalContractStatus.RETURNED,
                 "AFTER_RENTAL images can be added only before inspection begins");
-        return addImage(rentalContractId, ConditionRecordType.AFTER_RENTAL, request);
+        return addImage(rentalContractId, ConditionRecordType.AFTER_RENTAL, metadata, file);
     }
 
     @Transactional(readOnly = true)
@@ -101,6 +109,30 @@ public class ConditionApplicationService {
     @Transactional(readOnly = true)
     public ConditionRecordResponse getAfterCondition(Long rentalContractId) {
         return getCondition(rentalContractId, ConditionRecordType.AFTER_RENTAL);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] loadImage(Long rentalContractId, Long imageId) {
+        ConditionImage image = conditionImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Condition image not found: " + imageId));
+
+        if (!image.getConditionRecord().getRentalContract().getId().equals(rentalContractId)) {
+            throw new ResourceNotFoundException("Condition image not found for rental: " + rentalContractId);
+        }
+
+        return conditionImageStorageService.load(image.getStorageKey());
+    }
+
+    @Transactional(readOnly = true)
+    public ConditionImage getImageMetadata(Long rentalContractId, Long imageId) {
+        ConditionImage image = conditionImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Condition image not found: " + imageId));
+
+        if (!image.getConditionRecord().getRentalContract().getId().equals(rentalContractId)) {
+            throw new ResourceNotFoundException("Condition image not found for rental: " + rentalContractId);
+        }
+
+        return image;
     }
 
     private ConditionRecord createCondition(
@@ -127,7 +159,8 @@ public class ConditionApplicationService {
     private ConditionImageResponse addImage(
             Long rentalContractId,
             ConditionRecordType type,
-            ConditionImageRequest request
+            ConditionImageMetadataRequest metadata,
+            MultipartFile file
     ) {
         ConditionRecord record = conditionRecordRepository.findByRentalContractIdAndRecordType(
                         rentalContractId,
@@ -137,13 +170,21 @@ public class ConditionApplicationService {
                         "Create " + type + " condition before adding images"
                 ));
 
+        StoredImage stored = conditionImageStorageService.store(
+                rentalContractId,
+                type,
+                file
+        );
+
         ConditionImage image = new ConditionImage(
                 record,
-                request.imageUrl(),
-                request.storageKey(),
-                request.captureOrder(),
-                request.viewpoint(),
-                request.capturedAt()
+                stored.storageKey(),
+                stored.originalFilename(),
+                stored.contentType(),
+                stored.fileSize(),
+                metadata.captureOrder(),
+                metadata.viewpoint(),
+                metadata.capturedAt()
         );
 
         return ConditionImageResponse.from(conditionImageRepository.save(image));

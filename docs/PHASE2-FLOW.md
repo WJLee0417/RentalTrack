@@ -7,11 +7,11 @@
 → 대여 신청
 → 상품 인수
 → BEFORE_RENTAL 상태 기록
-→ BEFORE_RENTAL 이미지 메타데이터
+→ BEFORE_RENTAL 이미지 업로드 및 메타데이터
 → 실제 이용 시작
 → 반납
 → AFTER_RENTAL 상태 기록
-→ AFTER_RENTAL 이미지 메타데이터
+→ AFTER_RENTAL 이미지 업로드 및 메타데이터
 → DamageRecord 비교
 → ReturnInspection
 → 대여 완료
@@ -102,3 +102,18 @@ REVIEW_REQUIRED
 - `REVIEW_REQUIRED`: 계약 INSPECTING + 상품 INSPECTION 유지
 
 `REVIEW_REQUIRED`로 저장된 검수 결과는 이후 최종 결과로 수정할 수 있습니다.
+
+
+## 이미지 업로드 변경
+
+Phase 3부터 ConditionImage API는 클라이언트가 임의의 `imageUrl`이나 `storageKey`를 전달하지 않습니다.
+
+```text
+multipart/form-data
+- file
+- captureOrder
+- viewpoint
+- capturedAt
+```
+
+Backend가 저장소를 선택하고 `storageKey`를 생성합니다. 조회 시에는 `contentPath`를 통해 권한 검사를 거친 이미지 내용을 반환합니다.
