@@ -24,12 +24,15 @@
 - [x] ConditionRecord ERD / Entity
 - [x] ConditionImage ERD / Entity
 - [x] Flyway V3 condition schema
+- [x] DamageRecord ERD / Entity
+- [x] Flyway V4 damage schema
+- [x] ReturnInspection ERD / Entity
+- [x] Flyway V5 inspection schema
 
-### Next
-- [ ] DamageRecord
-- [ ] ReturnInspection
-- [ ] Phase 1 전체 schema integration test
-- [ ] Entity ↔ Flyway validate 검증
+### Phase 1 verification
+- [ ] 전체 Flyway migration 실행 검증
+- [ ] Entity ↔ Flyway `ddl-auto=validate` 검증
+- [ ] 핵심 DB 제약조건 integration test
 
 ## Phase 2 — Core Web Flow
 
@@ -39,15 +42,15 @@
 - [ ] 대여 전 상태 확인
 - [ ] 반납
 - [ ] 대여 후 상태 기록
-- [ ] 검수
+- [ ] 기존/신규 손상 비교
+- [ ] 반납 검수
 - [ ] 사용자 대여 이력
 
 ## Phase 3 — Quality
 
 - [ ] API validation
 - [ ] 핵심 상태 전이 테스트
-- [ ] DB 제약조건 테스트
-- [ ] 통합 테스트
+- [ ] 서비스 계층 동시성 테스트
 - [ ] 사용자/운영자 권한 분리
 - [ ] 이미지 저장소 분리
 

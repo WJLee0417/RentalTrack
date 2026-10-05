@@ -1,44 +1,22 @@
-# RentalTrack Domain v0.3
+# RentalTrack Domain v1.0
 
 ## 문제 정의
 
-RentalTrack은 이동 중 갑자기 필요한 생활용품을 주변 대여 지점에서 찾고 대여·반납할 수 있도록 하며, 반복 대여되는 개별 상품의 상태와 이용 이력을 대여 건 단위로 추적하는 웹 서비스입니다.
+RentalTrack은 이동 중 갑자기 필요한 생활용품을 주변 대여 지점에서 찾고 대여·반납할 수 있도록 하며, 반복 대여되는 개별 상품의 상태·사진·손상 이력을 대여 건 단위로 추적하는 웹 서비스입니다.
 
-## 현재 확정 도메인
+## Phase 1 확정 도메인
 
 ### Member
-
-서비스 이용자입니다.
-
-```text
-ACTIVE
-SUSPENDED
-WITHDRAWN
-```
-
-현재는 사용자 식별 정보만 담당하고 인증 자격 증명은 분리된 관심사로 둡니다.
+서비스 이용자.
 
 ### RentalLocation
-
-상품을 인수·반납할 수 있는 대여 지점입니다.
+상품을 인수·반납할 수 있는 대여 지점.
 
 ### ProductCategory
-
-상품 분류입니다.
-
-예:
-
-```text
-POWER_BANK
-CHARGER
-MULTI_ADAPTER
-PORTABLE_FAN
-FOLDING_CART
-```
+보조배터리, 충전기, 멀티어댑터, 휴대용 선풍기, 접이식 카트 등의 상품 분류.
 
 ### RentalProduct
-
-반복 대여되는 개별 상품입니다.
+반복 대여되는 개별 상품.
 
 ```text
 AVAILABLE
@@ -50,8 +28,7 @@ RETIRED
 ```
 
 ### RentalContract
-
-회원과 개별 상품 사이의 한 번의 대여 건입니다.
+회원과 개별 상품 사이의 한 번의 대여 건.
 
 ```text
 REQUESTED
@@ -62,7 +39,7 @@ REQUESTED
 → COMPLETED
 ```
 
-예외 상태:
+예외:
 
 ```text
 REJECTED
@@ -70,29 +47,38 @@ CANCELED
 ```
 
 ### ConditionRecord
-
-한 RentalContract의 대여 전 또는 대여 후 상품 상태를 기록합니다.
+한 RentalContract의 대여 전·후 상태 기록.
 
 ```text
 BEFORE_RENTAL
 AFTER_RENTAL
 ```
 
-핵심 원칙은 `RentalProduct.currentCondition` 같은 값을 계속 덮어쓰지 않는 것입니다.
+### ConditionImage
+ConditionRecord에 속한 사진 메타데이터.
+
+### DamageRecord
+ConditionRecord에서 확인한 개별 손상.
 
 ```text
-RentalContract #101
-├─ BEFORE_RENTAL ConditionRecord
-└─ AFTER_RENTAL ConditionRecord
+DamageComparisonResult
+
+BASELINE
+UNRESOLVED
+EXISTING
+NEW
 ```
 
-각 대여 건의 전·후 기록을 별도로 남겨 반복 대여 시점 사이의 상태 변화를 추적합니다.
+`EXISTING`인 대여 후 손상은 `matchedBeforeDamage`를 통해 대응되는 대여 전 손상을 직접 가리킵니다.
 
-### ConditionImage
+### ReturnInspection
+대여 전·후 상태와 DamageRecord 비교가 끝난 뒤 RentalContract 단위로 저장하는 최종 검수 결과.
 
-ConditionRecord에 속한 사진 메타데이터입니다.
-
-이미지 바이너리는 DB에 넣지 않고 URL과 storage key를 저장합니다.
+```text
+NO_NEW_DAMAGE
+NEW_DAMAGE_CONFIRMED
+REVIEW_REQUIRED
+```
 
 ## 핵심 관계
 
@@ -103,28 +89,27 @@ Member
        ├─ return RentalLocation
        ├─ RentalProduct
        │    └─ ProductCategory
-       ├─ BEFORE ConditionRecord
-       │    └─ ConditionImage
-       └─ AFTER ConditionRecord
-            └─ ConditionImage
+       ├─ BEFORE_RENTAL ConditionRecord
+       │    ├─ ConditionImage[]
+       │    └─ DamageRecord(BASELINE)[]
+       ├─ AFTER_RENTAL ConditionRecord
+       │    ├─ ConditionImage[]
+       │    └─ DamageRecord[]
+       │         ├─ EXISTING → BEFORE DamageRecord
+       │         └─ NEW
+       └─ ReturnInspection
 ```
 
-## 다음 도메인
+## Phase 1 핵심 설계 원칙
 
-### DamageRecord
-ConditionRecord에서 확인한 손상 위치·종류·설명을 구조화합니다.
-
-### ReturnInspection
-대여 전·후 상태와 DamageRecord를 비교해 운영자가 최종 검수한 결과를 RentalContract 단위로 저장합니다.
-
-## 설계 원칙
-
-1. 상품 상태를 단일 현재 값만으로 표현하지 않는다.
+1. 상품의 상태 이력을 단일 현재 값에 덮어쓰지 않는다.
 2. 반복 대여 이력은 RentalContract로 분리한다.
-3. 대여 전·후 상태는 동일 RentalContract 안에서 별도 ConditionRecord로 보존한다.
-4. 사진은 ConditionRecord에 귀속시키며 DB에는 메타데이터만 저장한다.
-5. 과거 계약과 상태 이력을 깨뜨리는 물리 삭제를 기본 운영 방식으로 사용하지 않는다.
-6. 손상 책임 판단을 AI가 자동 확정하지 않는다.
-7. AI 수요 예측은 운영 의사결정 지원에 사용한다.
+3. 대여 전·후 상태는 같은 RentalContract 안에서 별도 ConditionRecord로 보존한다.
+4. 사진은 ConditionRecord에 귀속시키고 DB에는 저장 위치와 메타데이터만 저장한다.
+5. 손상은 DamageRecord로 구조화하고 대여 후 기존 손상은 대여 전 기록과 직접 연결한다.
+6. ReturnInspection은 손상 개별 기록과 분리된 계약 단위 최종 검수 결과다.
+7. 과거 계약·상태·손상·검수 이력을 깨뜨리는 물리 삭제를 기본 운영 방식으로 사용하지 않는다.
+8. 손상 책임 판단을 AI가 자동 확정하지 않는다.
+9. AI 수요 예측은 별도의 운영 의사결정 지원 기능으로 둔다.
 
 상세 물리 모델은 [ERD.md](./ERD.md)를 기준으로 합니다.
