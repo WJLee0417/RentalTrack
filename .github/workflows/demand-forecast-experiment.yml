@@ -63,12 +63,12 @@ jobs:
         run: |
           set -euo pipefail
           for file in $(find backend/src/main/resources/db/migration -maxdepth 1 -name 'V*.sql' | sort -V); do
-            echo "Applying \${file}"
+            echo "Applying ${file}"
             mysql \
               --host=127.0.0.1 \
               --port=3306 \
               --user=rentaltrack \
-              rentaltrack_test < "\${file}"
+              rentaltrack_test < "${file}"
           done
 
       - name: Install experiment dependencies
