@@ -3,10 +3,12 @@ package com.rentaltrack.forecast.repository;
 import com.rentaltrack.forecast.domain.InventoryRecommendation;
 import com.rentaltrack.forecast.domain.RecommendationStatus;
 import com.rentaltrack.forecast.domain.RiskLevel;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -44,4 +46,14 @@ public interface InventoryRecommendationRepository extends JpaRepository<Invento
     })
     @Query("select ir from InventoryRecommendation ir where ir.id = :id")
     Optional<InventoryRecommendation> findDetailById(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {
+            "demandForecast",
+            "demandForecast.modelRun",
+            "demandForecast.rentalLocation",
+            "demandForecast.productCategory"
+    })
+    @Query("select ir from InventoryRecommendation ir where ir.id = :id")
+    Optional<InventoryRecommendation> findDetailByIdForUpdate(@Param("id") Long id);
 }

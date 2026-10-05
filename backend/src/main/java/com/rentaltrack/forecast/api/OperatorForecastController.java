@@ -2,17 +2,21 @@ package com.rentaltrack.forecast.api;
 
 import com.rentaltrack.access.application.AccessControlService;
 import com.rentaltrack.forecast.application.OperatorForecastQueryService;
+import com.rentaltrack.forecast.application.OperatorRecommendationDecisionService;
 import com.rentaltrack.forecast.domain.ModelRunStatus;
 import com.rentaltrack.forecast.domain.ModelRunType;
 import com.rentaltrack.forecast.domain.RecommendationStatus;
 import com.rentaltrack.forecast.domain.RiskLevel;
 import com.rentaltrack.global.api.PageResponse;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,13 +30,16 @@ import java.util.Locale;
 public class OperatorForecastController {
 
     private final OperatorForecastQueryService operatorForecastQueryService;
+    private final OperatorRecommendationDecisionService operatorRecommendationDecisionService;
     private final AccessControlService accessControlService;
 
     public OperatorForecastController(
             OperatorForecastQueryService operatorForecastQueryService,
+            OperatorRecommendationDecisionService operatorRecommendationDecisionService,
             AccessControlService accessControlService
     ) {
         this.operatorForecastQueryService = operatorForecastQueryService;
+        this.operatorRecommendationDecisionService = operatorRecommendationDecisionService;
         this.accessControlService = accessControlService;
     }
 
@@ -123,6 +130,19 @@ public class OperatorForecastController {
     ) {
         accessControlService.requireOperator(actorId);
         return operatorForecastQueryService.getRecommendation(recommendationId);
+    }
+
+    @PatchMapping("/recommendations/{recommendationId}/decision")
+    public InventoryRecommendationResponse decideRecommendation(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @PathVariable @Positive Long recommendationId,
+            @Valid @RequestBody RecommendationDecisionRequest request
+    ) {
+        accessControlService.requireOperator(actorId);
+        return operatorRecommendationDecisionService.decide(
+                recommendationId,
+                request.decision()
+        );
     }
 
     private <E extends Enum<E>> E parseEnum(

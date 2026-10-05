@@ -67,3 +67,5 @@
 - [x] model_run 운영자 조회 API
 - [x] demand_forecast 운영자 조회 API
 - [x] inventory_recommendation 운영자 조회 API
+
+- [x] inventory_recommendation ACCEPTED / DISMISSED 운영자 의사결정 API

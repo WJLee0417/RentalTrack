@@ -90,8 +90,68 @@ OPERATOR
 
 역할 자체를 request parameter나 header에서 전달받지 않고, `X-Actor-Id`로 조회한 Member의 DB role을 기준으로 판단합니다.
 
+## Recommendation decision
+
+운영자는 OPEN 상태의 recommendation을 최종 판단할 수 있습니다.
+
+```text
+PATCH /api/v1/operator/ai/recommendations/{recommendationId}/decision
+```
+
+Request:
+
+```json
+{
+  "decision": "ACCEPTED"
+}
+```
+
+또는:
+
+```json
+{
+  "decision": "DISMISSED"
+}
+```
+
+허용되는 최종 판단은 `ACCEPTED`, `DISMISSED` 두 값뿐입니다.
+
+상태 전이:
+
+```text
+OPEN
+├─→ ACCEPTED
+└─→ DISMISSED
+```
+
+이미 최종 판단된 recommendation은 다시 변경할 수 없습니다.
+
+```text
+ACCEPTED → DISMISSED  X
+DISMISSED → ACCEPTED  X
+```
+
+중복 또는 경합하는 운영자 판단을 직렬화하기 위해 recommendation 조회에 `PESSIMISTIC_WRITE` lock을 적용합니다.
+
+결정이 완료되면 `decidedAt`을 기록하고 변경된 recommendation 전체 응답을 반환합니다.
+
+오류 정책:
+
+```text
+OPEN을 decision으로 요청
+→ 400 BAD_REQUEST
+
+이미 확정된 recommendation 재결정
+→ 409 INVALID_STATE
+
+존재하지 않는 recommendation
+→ 404 NOT_FOUND
+
+USER 접근
+→ 403 FORBIDDEN
+```
+
 ## 현재 범위
 
-이 API는 조회 전용입니다.
-
-`inventory_recommendation.status`를 `ACCEPTED / DISMISSED`로 변경하는 운영자 의사결정 API는 다음 단계에서 별도로 추가합니다.
+현재 API는 추천을 승인하거나 기각하는 운영자 판단을 기록합니다.
+승인 이후 상품 재배치 자체를 자동 실행하지는 않습니다.

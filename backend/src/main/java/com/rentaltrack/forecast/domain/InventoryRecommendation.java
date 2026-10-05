@@ -61,6 +61,24 @@ public class InventoryRecommendation {
     protected InventoryRecommendation() {
     }
 
+    public void decide(
+            RecommendationStatus decision,
+            LocalDateTime decidedAt
+    ) {
+        if (this.status != RecommendationStatus.OPEN) {
+            throw new IllegalStateException("Recommendation decision is already finalized");
+        }
+
+        if (decision == null || decision == RecommendationStatus.OPEN) {
+            throw new IllegalArgumentException(
+                    "Recommendation decision must be ACCEPTED or DISMISSED"
+            );
+        }
+
+        this.status = decision;
+        this.decidedAt = decidedAt;
+    }
+
     public Long getId() {
         return id;
     }
