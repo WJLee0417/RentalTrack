@@ -17,6 +17,22 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AuthenticationRequiredException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnauthorized(
+            AuthenticationRequiredException exception,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleForbidden(
+            AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.FORBIDDEN, "FORBIDDEN", exception.getMessage(), request);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(
             ResourceNotFoundException exception,

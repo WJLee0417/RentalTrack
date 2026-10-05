@@ -42,6 +42,9 @@ public interface RentalContractRepository extends JpaRepository<RentalContract, 
             """)
     Optional<RentalContract> findDetailById(@Param("id") Long id);
 
+    @Query("select rc.member.id from RentalContract rc where rc.id = :id")
+    Optional<Long> findMemberIdById(@Param("id") Long id);
+
     @EntityGraph(attributePaths = {
             "rentalProduct",
             "rentalProduct.category",

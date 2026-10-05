@@ -28,13 +28,22 @@ public class Member extends BaseTimeEntity {
     @Column(name = "status", nullable = false, length = 20)
     private MemberStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 20)
+    private MemberRole role;
+
     protected Member() {
     }
 
     public Member(String email, String name) {
+        this(email, name, MemberRole.USER);
+    }
+
+    public Member(String email, String name, MemberRole role) {
         this.email = email;
         this.name = name;
         this.status = MemberStatus.ACTIVE;
+        this.role = role;
     }
 
     public Long getId() {
@@ -51,6 +60,10 @@ public class Member extends BaseTimeEntity {
 
     public MemberStatus getStatus() {
         return status;
+    }
+
+    public MemberRole getRole() {
+        return role;
     }
 
     public void suspend() {

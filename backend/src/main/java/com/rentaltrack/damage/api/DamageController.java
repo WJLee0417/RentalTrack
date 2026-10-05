@@ -1,5 +1,6 @@
 package com.rentaltrack.damage.api;
 
+import com.rentaltrack.access.application.AccessControlService;
 import com.rentaltrack.damage.application.DamageApplicationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,36 +23,53 @@ import java.util.List;
 public class DamageController {
 
     private final DamageApplicationService damageApplicationService;
+    private final AccessControlService accessControlService;
 
-    public DamageController(DamageApplicationService damageApplicationService) {
+    public DamageController(
+            DamageApplicationService damageApplicationService,
+            AccessControlService accessControlService
+    ) {
         this.damageApplicationService = damageApplicationService;
+        this.accessControlService = accessControlService;
     }
 
     @PostMapping("/before")
     @ResponseStatus(HttpStatus.CREATED)
     public DamageResponse addBeforeDamage(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
             @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody DamageCreateRequest request
     ) {
+        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
         return damageApplicationService.addBeforeDamage(rentalContractId, request);
     }
 
     @PostMapping("/after")
     @ResponseStatus(HttpStatus.CREATED)
     public DamageResponse addAfterDamage(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
             @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody DamageCreateRequest request
     ) {
+        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
         return damageApplicationService.addAfterDamage(rentalContractId, request);
     }
 
     @PostMapping("/compare")
-    public List<DamageResponse> compare(@PathVariable @Positive Long rentalContractId) {
+    public List<DamageResponse> compare(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @PathVariable @Positive Long rentalContractId
+    ) {
+        accessControlService.requireOperator(actorId);
         return damageApplicationService.compare(rentalContractId);
     }
 
     @GetMapping("/after")
-    public List<DamageResponse> getAfterDamages(@PathVariable @Positive Long rentalContractId) {
+    public List<DamageResponse> getAfterDamages(
+            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @PathVariable @Positive Long rentalContractId
+    ) {
+        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
         return damageApplicationService.getAfterDamages(rentalContractId);
     }
 }
