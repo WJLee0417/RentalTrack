@@ -17,13 +17,19 @@
 - [x] RentalContract ERD / Entity
 - [x] Flyway V1 core schema
 
-### Next domain
-- [ ] Member
-- [ ] ConditionRecord / ConditionImage
+### History domain
+- [x] Member ERD / Entity
+- [x] Member ↔ RentalContract FK
+- [x] Flyway V2 member schema
+- [x] ConditionRecord ERD / Entity
+- [x] ConditionImage ERD / Entity
+- [x] Flyway V3 condition schema
+
+### Next
 - [ ] DamageRecord
 - [ ] ReturnInspection
-- [ ] Member FK migration
 - [ ] Phase 1 전체 schema integration test
+- [ ] Entity ↔ Flyway validate 검증
 
 ## Phase 2 — Core Web Flow
 

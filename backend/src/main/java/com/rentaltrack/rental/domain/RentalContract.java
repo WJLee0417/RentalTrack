@@ -2,6 +2,7 @@ package com.rentaltrack.rental.domain;
 
 import com.rentaltrack.global.domain.BaseTimeEntity;
 import com.rentaltrack.location.domain.RentalLocation;
+import com.rentaltrack.member.domain.Member;
 import com.rentaltrack.product.domain.RentalProduct;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,8 +30,9 @@ public class RentalContract extends BaseTimeEntity {
     @Column(name = "contract_code", nullable = false, unique = true, length = 50)
     private String contractCode;
 
-    @Column(name = "member_id", nullable = false)
-    private Long memberId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rental_product_id", nullable = false)
@@ -75,13 +77,13 @@ public class RentalContract extends BaseTimeEntity {
 
     public RentalContract(
             String contractCode,
-            Long memberId,
+            Member member,
             RentalProduct rentalProduct,
             RentalLocation pickupLocation,
             LocalDateTime requestedAt
     ) {
         this.contractCode = contractCode;
-        this.memberId = memberId;
+        this.member = member;
         this.rentalProduct = rentalProduct;
         this.pickupLocation = pickupLocation;
         this.requestedAt = requestedAt;
@@ -96,8 +98,8 @@ public class RentalContract extends BaseTimeEntity {
         return contractCode;
     }
 
-    public Long getMemberId() {
-        return memberId;
+    public Member getMember() {
+        return member;
     }
 
     public RentalProduct getRentalProduct() {
