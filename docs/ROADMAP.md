@@ -60,7 +60,7 @@
 
 - [x] 수요 예측용 데이터셋 정의
 - [x] Baseline 모델
-- [~] TTM-R3 zero-shot 모델 연결 및 비교
+- [x] TTM-R3 zero-shot 모델 연결 및 비교
 - [x] 품절 위험 계산
 - [x] 운영자 재고 보충 추천
-- [~] 시간순 평가 및 MAE/RMSE 비교
+- [x] 시간순 평가 및 MAE/RMSE 비교
