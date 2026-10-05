@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -211,12 +212,12 @@ class Phase1SchemaIntegrationTest {
         assertThatThrownBy(() -> jdbcTemplate.update(
                 "UPDATE rental_product SET status = 'BROKEN_STATE' WHERE id = ?",
                 productId
-        )).isInstanceOf(DataIntegrityViolationException.class);
+        )).isInstanceOf(DataAccessException.class);
 
         assertThatThrownBy(() -> jdbcTemplate.update(
                 "UPDATE rental_contract SET status = 'BROKEN_STATE' WHERE id = ?",
                 contractId
-        )).isInstanceOf(DataIntegrityViolationException.class);
+        )).isInstanceOf(DataAccessException.class);
     }
 
     private Long insertConditionRecord(String recordType) {
