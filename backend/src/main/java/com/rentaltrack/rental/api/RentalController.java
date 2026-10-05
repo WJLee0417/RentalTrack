@@ -2,7 +2,9 @@ package com.rentaltrack.rental.api;
 
 import com.rentaltrack.rental.application.RentalApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/rentals")
 public class RentalController {
@@ -28,13 +31,13 @@ public class RentalController {
     }
 
     @PostMapping("/{rentalContractId}/pickup")
-    public RentalResponse pickup(@PathVariable Long rentalContractId) {
+    public RentalResponse pickup(@PathVariable @Positive Long rentalContractId) {
         return rentalApplicationService.pickup(rentalContractId);
     }
 
     @PostMapping("/{rentalContractId}/start")
     public RentalResponse startActualUse(
-            @PathVariable Long rentalContractId,
+            @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody StartRentalRequest request
     ) {
         return rentalApplicationService.startActualUse(rentalContractId, request);
@@ -42,14 +45,14 @@ public class RentalController {
 
     @PostMapping("/{rentalContractId}/return")
     public RentalResponse returnRental(
-            @PathVariable Long rentalContractId,
+            @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody ReturnRequest request
     ) {
         return rentalApplicationService.returnRental(rentalContractId, request);
     }
 
     @GetMapping("/{rentalContractId}")
-    public RentalResponse getRental(@PathVariable Long rentalContractId) {
+    public RentalResponse getRental(@PathVariable @Positive Long rentalContractId) {
         return rentalApplicationService.getRental(rentalContractId);
     }
 }

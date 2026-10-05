@@ -2,7 +2,9 @@ package com.rentaltrack.damage.api;
 
 import com.rentaltrack.damage.application.DamageApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/rentals/{rentalContractId}/damages")
 public class DamageController {
@@ -26,7 +29,7 @@ public class DamageController {
     @PostMapping("/before")
     @ResponseStatus(HttpStatus.CREATED)
     public DamageResponse addBeforeDamage(
-            @PathVariable Long rentalContractId,
+            @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody DamageCreateRequest request
     ) {
         return damageApplicationService.addBeforeDamage(rentalContractId, request);
@@ -35,19 +38,19 @@ public class DamageController {
     @PostMapping("/after")
     @ResponseStatus(HttpStatus.CREATED)
     public DamageResponse addAfterDamage(
-            @PathVariable Long rentalContractId,
+            @PathVariable @Positive Long rentalContractId,
             @Valid @RequestBody DamageCreateRequest request
     ) {
         return damageApplicationService.addAfterDamage(rentalContractId, request);
     }
 
     @PostMapping("/compare")
-    public List<DamageResponse> compare(@PathVariable Long rentalContractId) {
+    public List<DamageResponse> compare(@PathVariable @Positive Long rentalContractId) {
         return damageApplicationService.compare(rentalContractId);
     }
 
     @GetMapping("/after")
-    public List<DamageResponse> getAfterDamages(@PathVariable Long rentalContractId) {
+    public List<DamageResponse> getAfterDamages(@PathVariable @Positive Long rentalContractId) {
         return damageApplicationService.getAfterDamages(rentalContractId);
     }
 }

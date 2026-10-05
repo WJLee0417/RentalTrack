@@ -50,7 +50,7 @@
 
 ## Phase 3 — Quality
 
-- [ ] API validation
+- [x] API validation
 - [ ] 핵심 상태 전이 테스트
 - [ ] 서비스 계층 동시성 테스트
 - [ ] 사용자/운영자 권한 분리
