@@ -38,7 +38,7 @@ class Phase1SchemaIntegrationTest {
         );
         memberId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM member_account", Long.class);
 
-        String locationCode = "LOC-" + UUID.randomUUID();
+        String locationCode = "LOC-" + shortId();
         jdbcTemplate.update(
                 """
                 INSERT INTO rental_location
@@ -49,7 +49,7 @@ class Phase1SchemaIntegrationTest {
         );
         locationId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM rental_location", Long.class);
 
-        String categoryCode = "CAT-" + UUID.randomUUID();
+        String categoryCode = "CAT-" + shortId();
         jdbcTemplate.update(
                 """
                 INSERT INTO product_category (code, name, description, active)
@@ -59,7 +59,7 @@ class Phase1SchemaIntegrationTest {
         );
         categoryId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM product_category", Long.class);
 
-        String assetCode = "ASSET-" + UUID.randomUUID();
+        String assetCode = "ASSET-" + shortId();
         jdbcTemplate.update(
                 """
                 INSERT INTO rental_product
@@ -72,7 +72,7 @@ class Phase1SchemaIntegrationTest {
         );
         productId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM rental_product", Long.class);
 
-        String contractCode = "CONTRACT-" + UUID.randomUUID();
+        String contractCode = "CONTRACT-" + shortId();
         jdbcTemplate.update(
                 """
                 INSERT INTO rental_contract
@@ -242,6 +242,10 @@ class Phase1SchemaIntegrationTest {
                 contractId,
                 recordType
         );
+    }
+
+    private String shortId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
 
     private void cleanDatabase() {

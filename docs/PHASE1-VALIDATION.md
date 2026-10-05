@@ -13,11 +13,23 @@ Phase 1에서 확정한 9개 엔터티와 Flyway V1~V5가 같은 물리 스키�
 - RentalContract당 ReturnInspection 한 건 제한
 - RentalProduct / RentalContract 상태 CHECK 제약
 
-## 1차 CI 결과와 수정
+## 검증 중 발견한 문제
 
-첫 GitHub Actions 실행에서 Java 컴파일과 테스트 컴파일은 통과했지만 Flyway 적용 단계에서 실패했습니다.
+### 1. MySQL CHECK 제약과 AUTO_INCREMENT PK
 
-원인은 MySQL CHECK 제약에 AUTO_INCREMENT PK인 damage_record.id를 직접 참조한 self-match 제약이었습니다. MySQL에서는 해당 형태를 허용하지 않으므로 DB CHECK를 제거하고 DamageRecord.markExisting()의 도메인 검증으로 옮겼습니다.
+첫 실행에서 V4의 self-match CHECK가 MySQL 8.4에서 허용되지 않아 Flyway가 중단되었습니다.
+
+해결:
+- DB CHECK에서 damage_record.id 직접 참조 제거
+- DamageRecord.markExisting() 도메인 검증으로 self-match 방지 이동
+
+### 2. 테스트 fixture 길이
+
+두 번째 실행에서는 Flyway와 Spring context가 정상 기동된 뒤 테스트 fixture의 location/category code가 VARCHAR(30)을 초과해 실패했습니다.
+
+해결:
+- 테스트용 식별자를 16자리 compact UUID로 제한
+- 스키마 제약을 느슨하게 바꾸지 않고 fixture를 실제 컬럼 계약에 맞춤
 
 ## 자동 검증
 
