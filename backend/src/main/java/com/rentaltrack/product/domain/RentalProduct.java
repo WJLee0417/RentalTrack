@@ -66,8 +66,8 @@ public class RentalProduct extends BaseTimeEntity {
         this.status = RentalProductStatus.RESERVED;
     }
 
-    public void startRental() {
-        requireStatus(RentalProductStatus.RESERVED, "Only RESERVED products can start rental");
+    public void markPickedUp() {
+        requireStatus(RentalProductStatus.RESERVED, "Only RESERVED products can be picked up");
         this.status = RentalProductStatus.RENTED;
     }
 

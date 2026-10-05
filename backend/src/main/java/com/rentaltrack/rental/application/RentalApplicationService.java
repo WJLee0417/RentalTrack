@@ -1,5 +1,8 @@
 package com.rentaltrack.rental.application;
 
+import com.rentaltrack.condition.domain.ConditionRecordType;
+import com.rentaltrack.condition.repository.ConditionImageRepository;
+import com.rentaltrack.condition.repository.ConditionRecordRepository;
 import com.rentaltrack.global.error.ResourceNotFoundException;
 import com.rentaltrack.location.domain.RentalLocation;
 import com.rentaltrack.location.repository.RentalLocationRepository;
@@ -8,9 +11,9 @@ import com.rentaltrack.member.domain.MemberStatus;
 import com.rentaltrack.member.repository.MemberRepository;
 import com.rentaltrack.product.domain.RentalProduct;
 import com.rentaltrack.product.repository.RentalProductRepository;
-import com.rentaltrack.rental.api.PickupRequest;
 import com.rentaltrack.rental.api.RentalRequest;
 import com.rentaltrack.rental.api.RentalResponse;
+import com.rentaltrack.rental.api.StartRentalRequest;
 import com.rentaltrack.rental.domain.RentalContract;
 import com.rentaltrack.rental.repository.RentalContractRepository;
 import org.springframework.stereotype.Service;
@@ -26,17 +29,23 @@ public class RentalApplicationService {
     private final RentalLocationRepository rentalLocationRepository;
     private final RentalProductRepository rentalProductRepository;
     private final RentalContractRepository rentalContractRepository;
+    private final ConditionRecordRepository conditionRecordRepository;
+    private final ConditionImageRepository conditionImageRepository;
 
     public RentalApplicationService(
             MemberRepository memberRepository,
             RentalLocationRepository rentalLocationRepository,
             RentalProductRepository rentalProductRepository,
-            RentalContractRepository rentalContractRepository
+            RentalContractRepository rentalContractRepository,
+            ConditionRecordRepository conditionRecordRepository,
+            ConditionImageRepository conditionImageRepository
     ) {
         this.memberRepository = memberRepository;
         this.rentalLocationRepository = rentalLocationRepository;
         this.rentalProductRepository = rentalProductRepository;
         this.rentalContractRepository = rentalContractRepository;
+        this.conditionRecordRepository = conditionRecordRepository;
+        this.conditionImageRepository = conditionImageRepository;
     }
 
     @Transactional
@@ -83,12 +92,11 @@ public class RentalApplicationService {
         );
         contract.approve(now);
 
-        RentalContract saved = rentalContractRepository.save(contract);
-        return RentalResponse.from(saved);
+        return RentalResponse.from(rentalContractRepository.save(contract));
     }
 
     @Transactional
-    public RentalResponse pickup(Long rentalContractId, PickupRequest request) {
+    public RentalResponse pickup(Long rentalContractId) {
         RentalContract contract = rentalContractRepository.findByIdForUpdate(rentalContractId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Rental contract not found: " + rentalContractId
@@ -103,11 +111,34 @@ public class RentalApplicationService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        if (!request.dueAt().isAfter(now)) {
-            throw new IllegalArgumentException("dueAt must be after pickup time");
+        product.markPickedUp();
+        contract.markPickedUp(now);
+
+        return RentalResponse.from(contract);
+    }
+
+    @Transactional
+    public RentalResponse startActualUse(Long rentalContractId, StartRentalRequest request) {
+        RentalContract contract = rentalContractRepository.findByIdForUpdate(rentalContractId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Rental contract not found: " + rentalContractId
+                ));
+
+        var beforeRecord = conditionRecordRepository.findByRentalContractIdAndRecordType(
+                        rentalContractId,
+                        ConditionRecordType.BEFORE_RENTAL
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "BEFORE_RENTAL condition must be recorded before starting actual use"
+                ));
+
+        if (conditionImageRepository.countByConditionRecordId(beforeRecord.getId()) == 0) {
+            throw new IllegalStateException(
+                    "At least one BEFORE_RENTAL image is required before starting actual use"
+            );
         }
 
-        product.startRental();
+        LocalDateTime now = LocalDateTime.now();
         contract.startRental(now, request.dueAt());
 
         return RentalResponse.from(contract);

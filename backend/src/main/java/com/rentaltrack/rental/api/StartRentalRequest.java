@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 
-public record PickupRequest(
+public record StartRentalRequest(
         @NotNull
         @Future
         LocalDateTime dueAt

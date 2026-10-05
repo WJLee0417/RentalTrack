@@ -56,6 +56,9 @@ public class RentalContract extends BaseTimeEntity {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
+    @Column(name = "picked_up_at")
+    private LocalDateTime pickedUpAt;
+
     @Column(name = "rented_at")
     private LocalDateTime rentedAt;
 
@@ -96,8 +99,14 @@ public class RentalContract extends BaseTimeEntity {
         this.approvedAt = approvedAt;
     }
 
-    public void startRental(LocalDateTime rentedAt, LocalDateTime dueAt) {
+    public void markPickedUp(LocalDateTime pickedUpAt) {
         requireStatus(RentalContractStatus.APPROVED, "Only APPROVED rentals can be picked up");
+        this.status = RentalContractStatus.PICKED_UP;
+        this.pickedUpAt = pickedUpAt;
+    }
+
+    public void startRental(LocalDateTime rentedAt, LocalDateTime dueAt) {
+        requireStatus(RentalContractStatus.PICKED_UP, "Only PICKED_UP rentals can start actual use");
         if (dueAt == null || !dueAt.isAfter(rentedAt)) {
             throw new IllegalArgumentException("dueAt must be after rentedAt");
         }
@@ -146,6 +155,10 @@ public class RentalContract extends BaseTimeEntity {
 
     public LocalDateTime getApprovedAt() {
         return approvedAt;
+    }
+
+    public LocalDateTime getPickedUpAt() {
+        return pickedUpAt;
     }
 
     public LocalDateTime getRentedAt() {

@@ -2,10 +2,13 @@ package com.rentaltrack;
 
 import com.rentaltrack.catalog.api.ProductResponse;
 import com.rentaltrack.catalog.application.CatalogService;
+import com.rentaltrack.condition.api.BeforeConditionRequest;
+import com.rentaltrack.condition.api.ConditionImageRequest;
+import com.rentaltrack.condition.application.ConditionApplicationService;
 import com.rentaltrack.product.domain.RentalProductStatus;
-import com.rentaltrack.rental.api.PickupRequest;
 import com.rentaltrack.rental.api.RentalRequest;
 import com.rentaltrack.rental.api.RentalResponse;
+import com.rentaltrack.rental.api.StartRentalRequest;
 import com.rentaltrack.rental.application.RentalApplicationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +35,9 @@ class Phase2RentalFlowIntegrationTest {
 
     @Autowired
     private RentalApplicationService rentalApplicationService;
+
+    @Autowired
+    private ConditionApplicationService conditionApplicationService;
 
     private Long memberId;
     private Long locationId;
@@ -86,7 +92,7 @@ class Phase2RentalFlowIntegrationTest {
     }
 
     @Test
-    void searchRequestAndPickupFlowChangesProductAndContractTogether() {
+    void searchRequestPickupRecordBeforeConditionAndStartActualUse() {
         List<ProductResponse> products = catalogService.findAvailableProducts(locationId, categoryId);
         assertThat(products).hasSize(1);
         assertThat(products.getFirst().id()).isEqualTo(productId);
@@ -94,22 +100,72 @@ class Phase2RentalFlowIntegrationTest {
         RentalResponse requested = rentalApplicationService.requestRental(
                 new RentalRequest(memberId, productId, locationId)
         );
-
         assertThat(requested.status()).isEqualTo("APPROVED");
         assertThat(productStatus()).isEqualTo(RentalProductStatus.RESERVED.name());
 
-        assertThat(catalogService.findAvailableProducts(locationId, categoryId)).isEmpty();
+        RentalResponse pickedUp = rentalApplicationService.pickup(requested.id());
+        assertThat(pickedUp.status()).isEqualTo("PICKED_UP");
+        assertThat(pickedUp.pickedUpAt()).isNotNull();
+        assertThat(productStatus()).isEqualTo(RentalProductStatus.RENTED.name());
 
-        LocalDateTime dueAt = LocalDateTime.now().plusHours(2);
-        RentalResponse pickedUp = rentalApplicationService.pickup(
+        var before = conditionApplicationService.createBeforeCondition(
                 requested.id(),
-                new PickupRequest(dueAt)
+                new BeforeConditionRequest("No visible damage")
         );
 
-        assertThat(pickedUp.status()).isEqualTo("IN_USE");
-        assertThat(pickedUp.rentedAt()).isNotNull();
-        assertThat(pickedUp.dueAt()).isEqualTo(dueAt);
-        assertThat(productStatus()).isEqualTo(RentalProductStatus.RENTED.name());
+        conditionApplicationService.addBeforeConditionImage(
+                requested.id(),
+                new ConditionImageRequest(
+                        "https://cdn.example.com/" + shortId() + ".jpg",
+                        "before/" + shortId() + ".jpg",
+                        1,
+                        "FRONT",
+                        LocalDateTime.now()
+                )
+        );
+
+        assertThat(before.recordType()).isEqualTo("BEFORE_RENTAL");
+
+        LocalDateTime dueAt = LocalDateTime.now().plusHours(2);
+        RentalResponse started = rentalApplicationService.startActualUse(
+                requested.id(),
+                new StartRentalRequest(dueAt)
+        );
+
+        assertThat(started.status()).isEqualTo("IN_USE");
+        assertThat(started.rentedAt()).isNotNull();
+        assertThat(started.dueAt()).isEqualTo(dueAt);
+    }
+
+    @Test
+    void actualUseCannotStartWithoutBeforeConditionImage() {
+        RentalResponse requested = rentalApplicationService.requestRental(
+                new RentalRequest(memberId, productId, locationId)
+        );
+
+        rentalApplicationService.pickup(requested.id());
+
+        conditionApplicationService.createBeforeCondition(
+                requested.id(),
+                new BeforeConditionRequest("record exists but no image")
+        );
+
+        assertThatThrownBy(() -> rentalApplicationService.startActualUse(
+                requested.id(),
+                new StartRentalRequest(LocalDateTime.now().plusHours(1))
+        )).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void beforeConditionCannotBeRecordedBeforePickup() {
+        RentalResponse requested = rentalApplicationService.requestRental(
+                new RentalRequest(memberId, productId, locationId)
+        );
+
+        assertThatThrownBy(() -> conditionApplicationService.createBeforeCondition(
+                requested.id(),
+                new BeforeConditionRequest("too early")
+        )).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -129,15 +185,10 @@ class Phase2RentalFlowIntegrationTest {
                 new RentalRequest(memberId, productId, locationId)
         );
 
-        rentalApplicationService.pickup(
-                requested.id(),
-                new PickupRequest(LocalDateTime.now().plusHours(1))
-        );
+        rentalApplicationService.pickup(requested.id());
 
-        assertThatThrownBy(() -> rentalApplicationService.pickup(
-                requested.id(),
-                new PickupRequest(LocalDateTime.now().plusHours(2))
-        )).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> rentalApplicationService.pickup(requested.id()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private String productStatus() {

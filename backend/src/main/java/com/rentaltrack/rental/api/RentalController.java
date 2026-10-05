@@ -28,11 +28,16 @@ public class RentalController {
     }
 
     @PostMapping("/{rentalContractId}/pickup")
-    public RentalResponse pickup(
+    public RentalResponse pickup(@PathVariable Long rentalContractId) {
+        return rentalApplicationService.pickup(rentalContractId);
+    }
+
+    @PostMapping("/{rentalContractId}/start")
+    public RentalResponse startActualUse(
             @PathVariable Long rentalContractId,
-            @Valid @RequestBody PickupRequest request
+            @Valid @RequestBody StartRentalRequest request
     ) {
-        return rentalApplicationService.pickup(rentalContractId, request);
+        return rentalApplicationService.startActualUse(rentalContractId, request);
     }
 
     @GetMapping("/{rentalContractId}")

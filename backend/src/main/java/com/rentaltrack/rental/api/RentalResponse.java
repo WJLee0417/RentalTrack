@@ -15,6 +15,7 @@ public record RentalResponse(
         String status,
         LocalDateTime requestedAt,
         LocalDateTime approvedAt,
+        LocalDateTime pickedUpAt,
         LocalDateTime rentedAt,
         LocalDateTime dueAt
 ) {
@@ -30,6 +31,7 @@ public record RentalResponse(
                 contract.getStatus().name(),
                 contract.getRequestedAt(),
                 contract.getApprovedAt(),
+                contract.getPickedUpAt(),
                 contract.getRentedAt(),
                 contract.getDueAt()
         );
