@@ -2,7 +2,7 @@
 
 Phase 4에서 생성한 `model_run`, `demand_forecast`, `inventory_recommendation` 결과를 Spring Boot 운영자 API로 조회합니다.
 
-모든 API는 현재 Phase 3의 임시 인증 경계인 `X-Actor-Id`를 사용하며, DB의 `member_account.role = OPERATOR`인 사용자만 접근할 수 있습니다.
+모든 API는 JWT Bearer 인증을 사용하며, DB의 `member_account.role = OPERATOR`인 사용자만 접근할 수 있습니다.
 
 ## Base path
 
@@ -88,7 +88,7 @@ OPERATOR
 → 조회 허용
 ```
 
-역할 자체를 request parameter나 header에서 전달받지 않고, `X-Actor-Id`로 조회한 Member의 DB role을 기준으로 판단합니다.
+역할 자체를 request parameter로 전달받지 않으며, JWT subject의 Member ID로 조회한 DB role을 기준으로 판단합니다.
 
 ## Recommendation decision
 
