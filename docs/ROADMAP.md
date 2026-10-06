@@ -79,3 +79,14 @@
 - [x] React 운영자 Dashboard 화면
 - [x] Dashboard에서 ACCEPTED / DISMISSED 처리
 - [x] Frontend build validation
+
+## Phase 6 — Authentication
+
+- [x] member password hash 스키마
+- [x] BCrypt 회원 가입 / 로그인
+- [x] JWT access token 발급 및 검증
+- [x] Spring Security stateless 인증
+- [x] X-Actor-Id 제거
+- [x] USER / OPERATOR 권한을 SecurityContext principal로 전환
+- [x] 운영자 Dashboard 로그인 화면
+- [ ] refresh token / logout invalidation 전략

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { loadSession } from '../auth/api';
 import type {
   InventoryRecommendation,
   OperatorAiDashboard,
@@ -10,31 +11,26 @@ const api = axios.create({
   timeout: 10000,
 });
 
-export async function fetchOperatorDashboard(
-  actorId: number,
-): Promise<OperatorAiDashboard> {
-  const response = await api.get<OperatorAiDashboard>('/dashboard', {
-    headers: {
-      'X-Actor-Id': actorId,
-    },
-  });
+api.interceptors.request.use((config) => {
+  const session = loadSession();
+  if (session?.accessToken) {
+    config.headers.Authorization = `Bearer ${session.accessToken}`;
+  }
+  return config;
+});
 
+export async function fetchOperatorDashboard(): Promise<OperatorAiDashboard> {
+  const response = await api.get<OperatorAiDashboard>('/dashboard');
   return response.data;
 }
 
 export async function decideRecommendation(
-  actorId: number,
   recommendationId: number,
   decision: Exclude<RecommendationStatus, 'OPEN'>,
 ): Promise<InventoryRecommendation> {
   const response = await api.patch<InventoryRecommendation>(
     `/recommendations/${recommendationId}/decision`,
     { decision },
-    {
-      headers: {
-        'X-Actor-Id': actorId,
-      },
-    },
   );
 
   return response.data;

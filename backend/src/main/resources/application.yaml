@@ -26,6 +26,10 @@ spring:
       max-request-size: 11MB
 
 rentaltrack:
+  auth:
+    jwt:
+      secret-base64: ${RENTALTRACK_JWT_SECRET_BASE64:UmVudGFsVHJhY2stRGV2LU9ubHktSldULVNlY3JldC0zMi1CeXRlcyE=}
+      access-token-seconds: ${RENTALTRACK_JWT_ACCESS_TOKEN_SECONDS:1800}
   storage:
     local:
       root: ${RENTALTRACK_STORAGE_ROOT:${java.io.tmpdir}/rentaltrack-images}

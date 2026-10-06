@@ -1,10 +1,13 @@
 package com.rentaltrack.condition.api;
 
+import com.rentaltrack.auth.domain.AuthenticatedMember;
+
 import com.rentaltrack.access.application.AccessControlService;
 import com.rentaltrack.condition.application.ConditionApplicationService;
 import com.rentaltrack.condition.domain.ConditionImage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -15,7 +18,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,22 +43,22 @@ public class AfterConditionController {
 
     @PostMapping
     public ConditionRecordResponse createAfterCondition(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long rentalContractId,
             @Valid @org.springframework.web.bind.annotation.RequestBody AfterConditionRequest request
     ) {
-        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
+        accessControlService.requireRentalOwnerOrOperator(actor, rentalContractId);
         return conditionApplicationService.createAfterCondition(rentalContractId, request);
     }
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ConditionImageResponse addImage(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long rentalContractId,
             @Valid @ModelAttribute ConditionImageMetadataRequest metadata,
             @RequestPart("file") MultipartFile file
     ) {
-        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
+        accessControlService.requireRentalOwnerOrOperator(actor, rentalContractId);
         return conditionApplicationService.addAfterConditionImage(
                 rentalContractId,
                 metadata,
@@ -66,20 +68,20 @@ public class AfterConditionController {
 
     @GetMapping
     public ConditionRecordResponse getAfterCondition(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long rentalContractId
     ) {
-        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
+        accessControlService.requireRentalOwnerOrOperator(actor, rentalContractId);
         return conditionApplicationService.getAfterCondition(rentalContractId);
     }
 
     @GetMapping("/images/{imageId}/content")
     public ResponseEntity<ByteArrayResource> getImage(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long rentalContractId,
             @PathVariable @Positive Long imageId
     ) {
-        accessControlService.requireRentalOwnerOrOperator(actorId, rentalContractId);
+        accessControlService.requireRentalOwnerOrOperator(actor, rentalContractId);
 
         ConditionImage metadata = conditionApplicationService.getImageMetadata(rentalContractId, imageId);
         byte[] content = conditionApplicationService.loadImage(rentalContractId, imageId);

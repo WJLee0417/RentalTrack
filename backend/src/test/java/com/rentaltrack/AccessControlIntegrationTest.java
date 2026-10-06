@@ -1,8 +1,9 @@
 package com.rentaltrack;
 
+import com.rentaltrack.auth.domain.AuthenticatedMember;
 import com.rentaltrack.access.application.AccessControlService;
 import com.rentaltrack.global.error.AccessDeniedException;
-import com.rentaltrack.global.error.AuthenticationRequiredException;
+import com.rentaltrack.member.domain.MemberRole;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,37 +70,59 @@ class AccessControlIntegrationTest {
     @Test
     void userCanAccessOwnRentalButNotAnotherUsersRental() {
         assertThatCode(() ->
-                accessControlService.requireRentalOwnerOrOperator(ownerId, rentalId)
+                accessControlService.requireRentalOwnerOrOperator(
+                        user(ownerId, "owner"),
+                        rentalId
+                )
         ).doesNotThrowAnyException();
 
         assertThatThrownBy(() ->
-                accessControlService.requireRentalOwnerOrOperator(otherUserId, rentalId)
+                accessControlService.requireRentalOwnerOrOperator(
+                        user(otherUserId, "other"),
+                        rentalId
+                )
         ).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
     void operatorCanAccessAnotherUsersRentalAndOperatorOnlyAction() {
+        AuthenticatedMember operator = operator();
+
         assertThatCode(() ->
-                accessControlService.requireRentalOwnerOrOperator(operatorId, rentalId)
+                accessControlService.requireRentalOwnerOrOperator(
+                        operator,
+                        rentalId
+                )
         ).doesNotThrowAnyException();
 
         assertThatCode(() ->
-                accessControlService.requireOperator(operatorId)
+                accessControlService.requireOperator(operator)
         ).doesNotThrowAnyException();
     }
 
     @Test
     void normalUserCannotPerformOperatorOnlyAction() {
         assertThatThrownBy(() ->
-                accessControlService.requireOperator(ownerId)
+                accessControlService.requireOperator(user(ownerId, "owner"))
         ).isInstanceOf(AccessDeniedException.class);
     }
 
-    @Test
-    void missingActorIsRejectedAsUnauthenticated() {
-        assertThatThrownBy(() ->
-                accessControlService.requireSelfOrOperator(null, ownerId)
-        ).isInstanceOf(AuthenticationRequiredException.class);
+    private AuthenticatedMember user(Long id, String name) {
+        return new AuthenticatedMember(
+                id,
+                name + "@example.com",
+                name,
+                MemberRole.USER
+        );
+    }
+
+    private AuthenticatedMember operator() {
+        return new AuthenticatedMember(
+                operatorId,
+                "operator@example.com",
+                "operator",
+                MemberRole.OPERATOR
+        );
     }
 
     private Long insertMember(String prefix, String role) {
@@ -170,6 +193,9 @@ class AccessControlIntegrationTest {
 
     private void cleanDatabase() {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+        jdbcTemplate.execute("TRUNCATE TABLE inventory_recommendation");
+        jdbcTemplate.execute("TRUNCATE TABLE demand_forecast");
+        jdbcTemplate.execute("TRUNCATE TABLE model_run");
         jdbcTemplate.execute("TRUNCATE TABLE return_inspection");
         jdbcTemplate.execute("TRUNCATE TABLE damage_record");
         jdbcTemplate.execute("TRUNCATE TABLE condition_image");

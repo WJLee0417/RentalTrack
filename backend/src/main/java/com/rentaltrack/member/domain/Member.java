@@ -21,6 +21,9 @@ public class Member extends BaseTimeEntity {
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
@@ -36,12 +39,26 @@ public class Member extends BaseTimeEntity {
     }
 
     public Member(String email, String name) {
-        this(email, name, MemberRole.USER);
+        this(email, name, null, MemberRole.USER);
     }
 
     public Member(String email, String name, MemberRole role) {
+        this(email, name, null, role);
+    }
+
+    public Member(String email, String name, String passwordHash) {
+        this(email, name, passwordHash, MemberRole.USER);
+    }
+
+    public Member(
+            String email,
+            String name,
+            String passwordHash,
+            MemberRole role
+    ) {
         this.email = email;
         this.name = name;
+        this.passwordHash = passwordHash;
         this.status = MemberStatus.ACTIVE;
         this.role = role;
     }
@@ -52,6 +69,10 @@ public class Member extends BaseTimeEntity {
 
     public String getEmail() {
         return email;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public String getName() {

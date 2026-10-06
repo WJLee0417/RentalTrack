@@ -1,12 +1,9 @@
 package com.rentaltrack.access.application;
 
+import com.rentaltrack.auth.domain.AuthenticatedMember;
 import com.rentaltrack.global.error.AccessDeniedException;
-import com.rentaltrack.global.error.AuthenticationRequiredException;
 import com.rentaltrack.global.error.ResourceNotFoundException;
-import com.rentaltrack.member.domain.Member;
 import com.rentaltrack.member.domain.MemberRole;
-import com.rentaltrack.member.domain.MemberStatus;
-import com.rentaltrack.member.repository.MemberRepository;
 import com.rentaltrack.rental.repository.RentalContractRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,33 +12,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class AccessControlService {
 
-    private final MemberRepository memberRepository;
     private final RentalContractRepository rentalContractRepository;
 
     public AccessControlService(
-            MemberRepository memberRepository,
             RentalContractRepository rentalContractRepository
     ) {
-        this.memberRepository = memberRepository;
         this.rentalContractRepository = rentalContractRepository;
     }
 
-    public void requireSelfOrOperator(Long actorId, Long memberId) {
-        Member actor = activeActor(actorId);
-
-        if (actor.getRole() == MemberRole.OPERATOR) {
+    public void requireSelfOrOperator(
+            AuthenticatedMember actor,
+            Long memberId
+    ) {
+        if (actor.role() == MemberRole.OPERATOR) {
             return;
         }
 
-        if (!actor.getId().equals(memberId)) {
-            throw new AccessDeniedException("Users can access only their own resources");
+        if (!actor.memberId().equals(memberId)) {
+            throw new AccessDeniedException(
+                    "Users can access only their own resources"
+            );
         }
     }
 
-    public void requireRentalOwnerOrOperator(Long actorId, Long rentalContractId) {
-        Member actor = activeActor(actorId);
-
-        if (actor.getRole() == MemberRole.OPERATOR) {
+    public void requireRentalOwnerOrOperator(
+            AuthenticatedMember actor,
+            Long rentalContractId
+    ) {
+        if (actor.role() == MemberRole.OPERATOR) {
             return;
         }
 
@@ -50,31 +48,16 @@ public class AccessControlService {
                         "Rental contract not found: " + rentalContractId
                 ));
 
-        if (!actor.getId().equals(ownerId)) {
-            throw new AccessDeniedException("Users can access only their own rental contracts");
+        if (!actor.memberId().equals(ownerId)) {
+            throw new AccessDeniedException(
+                    "Users can access only their own rental contracts"
+            );
         }
     }
 
-    public void requireOperator(Long actorId) {
-        Member actor = activeActor(actorId);
-
-        if (actor.getRole() != MemberRole.OPERATOR) {
+    public void requireOperator(AuthenticatedMember actor) {
+        if (actor.role() != MemberRole.OPERATOR) {
             throw new AccessDeniedException("Operator role is required");
         }
-    }
-
-    private Member activeActor(Long actorId) {
-        if (actorId == null) {
-            throw new AuthenticationRequiredException("X-Actor-Id header is required");
-        }
-
-        Member actor = memberRepository.findById(actorId)
-                .orElseThrow(() -> new AuthenticationRequiredException("Unknown actor"));
-
-        if (actor.getStatus() != MemberStatus.ACTIVE) {
-            throw new AuthenticationRequiredException("Actor is not active");
-        }
-
-        return actor;
     }
 }

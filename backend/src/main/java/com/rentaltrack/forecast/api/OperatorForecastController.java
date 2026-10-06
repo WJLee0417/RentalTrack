@@ -1,5 +1,7 @@
 package com.rentaltrack.forecast.api;
 
+import com.rentaltrack.auth.domain.AuthenticatedMember;
+
 import com.rentaltrack.access.application.AccessControlService;
 import com.rentaltrack.forecast.application.OperatorAiDashboardService;
 import com.rentaltrack.forecast.application.OperatorForecastQueryService;
@@ -13,12 +15,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,22 +51,22 @@ public class OperatorForecastController {
 
     @GetMapping("/dashboard")
     public OperatorAiDashboardResponse getDashboard(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId
+            @AuthenticationPrincipal AuthenticatedMember actor
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
         return operatorAiDashboardService.getDashboard();
     }
 
     @GetMapping("/model-runs")
     public PageResponse<ModelRunResponse> getModelRuns(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @RequestParam(required = false) String runType,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String datasetVersion,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
 
         return operatorForecastQueryService.getModelRuns(
                 parseEnum(runType, ModelRunType.class, "runType"),
@@ -77,23 +79,23 @@ public class OperatorForecastController {
 
     @GetMapping("/model-runs/{modelRunId}")
     public ModelRunResponse getModelRun(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long modelRunId
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
         return operatorForecastQueryService.getModelRun(modelRunId);
     }
 
     @GetMapping("/forecasts")
     public PageResponse<DemandForecastResponse> getForecasts(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @RequestParam(required = false) @Positive Long modelRunId,
             @RequestParam(required = false) @Positive Long locationId,
             @RequestParam(required = false) @Positive Long categoryId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
 
         return operatorForecastQueryService.getForecasts(
                 modelRunId,
@@ -106,16 +108,16 @@ public class OperatorForecastController {
 
     @GetMapping("/forecasts/{forecastId}")
     public DemandForecastResponse getForecast(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long forecastId
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
         return operatorForecastQueryService.getForecast(forecastId);
     }
 
     @GetMapping("/recommendations")
     public PageResponse<InventoryRecommendationResponse> getRecommendations(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String riskLevel,
             @RequestParam(required = false) @Positive Long locationId,
@@ -123,7 +125,7 @@ public class OperatorForecastController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
 
         return operatorForecastQueryService.getRecommendations(
                 parseEnum(status, RecommendationStatus.class, "status"),
@@ -137,20 +139,20 @@ public class OperatorForecastController {
 
     @GetMapping("/recommendations/{recommendationId}")
     public InventoryRecommendationResponse getRecommendation(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long recommendationId
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
         return operatorForecastQueryService.getRecommendation(recommendationId);
     }
 
     @PatchMapping("/recommendations/{recommendationId}/decision")
     public InventoryRecommendationResponse decideRecommendation(
-            @RequestHeader(name = "X-Actor-Id", required = false) @Positive Long actorId,
+            @AuthenticationPrincipal AuthenticatedMember actor,
             @PathVariable @Positive Long recommendationId,
             @Valid @RequestBody RecommendationDecisionRequest request
     ) {
-        accessControlService.requireOperator(actorId);
+        accessControlService.requireOperator(actor);
         return operatorRecommendationDecisionService.decide(
                 recommendationId,
                 request.decision()

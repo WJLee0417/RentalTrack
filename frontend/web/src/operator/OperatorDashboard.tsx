@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  clearSession,
+  loadSession,
+  login,
+  saveSession,
+  type AuthSession,
+} from '../auth/api';
 import { decideRecommendation, fetchOperatorDashboard } from './api';
 import type {
   InventoryRecommendation,
@@ -6,28 +14,20 @@ import type {
   RecommendationStatus,
 } from './types';
 
-const ACTOR_STORAGE_KEY = 'rentaltrack.operatorActorId';
-
 function formatNumber(value: number | null | undefined, digits = 1) {
-  if (value == null || Number.isNaN(value)) {
-    return '-';
-  }
+  if (value == null || Number.isNaN(value)) return '-';
   return new Intl.NumberFormat('ko-KR', {
     maximumFractionDigits: digits,
   }).format(value);
 }
 
 function formatMetric(value: number | null | undefined) {
-  if (value == null || Number.isNaN(value)) {
-    return '-';
-  }
+  if (value == null || Number.isNaN(value)) return '-';
   return value.toFixed(4);
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return '-';
-  }
+  if (!value) return '-';
   return new Intl.DateTimeFormat('ko-KR', {
     month: '2-digit',
     day: '2-digit',
@@ -43,81 +43,110 @@ function riskLabel(risk: InventoryRecommendation['riskLevel']) {
 }
 
 export default function OperatorDashboard() {
-  const [actorInput, setActorInput] = useState(
-    () => localStorage.getItem(ACTOR_STORAGE_KEY) ?? '',
-  );
-  const [actorId, setActorId] = useState<number | null>(() => {
-    const saved = localStorage.getItem(ACTOR_STORAGE_KEY);
-    const parsed = saved ? Number(saved) : NaN;
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-  });
+  const [session, setSession] = useState<AuthSession | null>(() => loadSession());
+  const [email, setEmail] = useState(session?.email ?? '');
+  const [password, setPassword] = useState('');
   const [dashboard, setDashboard] = useState<OperatorAiDashboard | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [decisionId, setDecisionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const hasData = Boolean(dashboard?.latestModel);
 
-  const loadDashboard = async (id: number) => {
+  const handleUnauthorized = () => {
+    clearSession();
+    setSession(null);
+    setDashboard(null);
+  };
+
+  const loadDashboard = async () => {
+    if (!session) return;
+
     setLoading(true);
     setError(null);
 
     try {
-      setDashboard(await fetchOperatorDashboard(id));
+      setDashboard(await fetchOperatorDashboard());
     } catch (requestError) {
       console.error(requestError);
-      setDashboard(null);
-      setError(
-        '대시보드 데이터를 불러오지 못했습니다. OPERATOR 권한의 Actor ID와 Backend 실행 상태를 확인해 주세요.',
-      );
+
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
+        handleUnauthorized();
+        setError('로그인 정보가 만료되었습니다. 다시 로그인해 주세요.');
+      } else if (
+        axios.isAxiosError(requestError)
+        && requestError.response?.status === 403
+      ) {
+        setDashboard(null);
+        setError('OPERATOR 권한이 필요한 화면입니다.');
+      } else {
+        setDashboard(null);
+        setError('대시보드 데이터를 불러오지 못했습니다. Backend 상태를 확인해 주세요.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (actorId != null) {
-      void loadDashboard(actorId);
+    if (session) {
+      void loadDashboard();
     }
-  }, [actorId]);
+  }, [session]);
 
-  const saveActor = () => {
-    const parsed = Number(actorInput);
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      setError('Actor ID는 1 이상의 정수여야 합니다.');
-      return;
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoginLoading(true);
+    setError(null);
+
+    try {
+      const nextSession = await login(email, password);
+      saveSession(nextSession);
+      setSession(nextSession);
+      setPassword('');
+    } catch (requestError) {
+      console.error(requestError);
+      setError('이메일 또는 비밀번호를 확인해 주세요.');
+    } finally {
+      setLoginLoading(false);
     }
+  };
 
-    localStorage.setItem(ACTOR_STORAGE_KEY, String(parsed));
-    setActorId(parsed);
+  const logout = () => {
+    clearSession();
+    setSession(null);
+    setDashboard(null);
+    setPassword('');
+    setError(null);
   };
 
   const handleDecision = async (
     recommendationId: number,
     decision: Exclude<RecommendationStatus, 'OPEN'>,
   ) => {
-    if (actorId == null) {
-      return;
-    }
-
     setDecisionId(recommendationId);
     setError(null);
 
     try {
-      await decideRecommendation(actorId, recommendationId, decision);
-      await loadDashboard(actorId);
+      await decideRecommendation(recommendationId, decision);
+      await loadDashboard();
     } catch (requestError) {
       console.error(requestError);
-      setError('운영자 판단을 저장하지 못했습니다. recommendation 상태를 확인해 주세요.');
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
+        handleUnauthorized();
+        setError('로그인 정보가 만료되었습니다. 다시 로그인해 주세요.');
+      } else {
+        setError('운영자 판단을 저장하지 못했습니다. recommendation 상태를 확인해 주세요.');
+      }
     } finally {
       setDecisionId(null);
     }
   };
 
   const bestMetric = useMemo(() => {
-    if (!dashboard?.modelComparison.length) {
-      return null;
-    }
+    if (!dashboard?.modelComparison.length) return null;
+
     return [...dashboard.modelComparison].sort((a, b) => {
       const aMae = a.mae ?? Number.POSITIVE_INFINITY;
       const bMae = b.mae ?? Number.POSITIVE_INFINITY;
@@ -140,22 +169,46 @@ export default function OperatorDashboard() {
           </p>
         </div>
 
-        <div className="actor-panel">
-          <label htmlFor="actor-id">Operator Actor ID</label>
-          <div className="actor-row">
-            <input
-              id="actor-id"
-              inputMode="numeric"
-              value={actorInput}
-              onChange={(event) => setActorInput(event.target.value)}
-              placeholder="예: 3"
-            />
-            <button type="button" className="secondary-button" onClick={saveActor}>
-              연결
-            </button>
+        {session ? (
+          <div className="actor-panel">
+            <span className="session-label">로그인 계정</span>
+            <strong>{session.name}</strong>
+            <span className="session-email">{session.email}</span>
+            <div className="session-actions">
+              <span className="badge badge-success">{session.role}</span>
+              <button type="button" className="text-button" onClick={logout}>
+                로그아웃
+              </button>
+            </div>
           </div>
-          <small>현재 임시 인증 경계인 X-Actor-Id를 사용합니다.</small>
-        </div>
+        ) : (
+          <form className="actor-panel login-panel" onSubmit={handleLogin}>
+            <label htmlFor="login-email">운영자 로그인</label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="operator@example.com"
+              required
+            />
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="비밀번호"
+              minLength={8}
+              required
+            />
+            <button type="submit" className="secondary-button" disabled={loginLoading}>
+              {loginLoading ? '로그인 중' : '로그인'}
+            </button>
+            <small>JWT access token으로 보호된 운영자 API에 접근합니다.</small>
+          </form>
+        )}
       </header>
 
       {error && <div className="error-banner">{error}</div>}
@@ -164,19 +217,19 @@ export default function OperatorDashboard() {
         <section className="empty-panel">대시보드 데이터를 불러오는 중입니다.</section>
       )}
 
-      {!loading && actorId == null && (
+      {!loading && !session && (
         <section className="empty-panel">
-          OPERATOR 권한을 가진 Actor ID를 입력하면 운영 데이터를 조회할 수 있습니다.
+          운영자 계정으로 로그인하면 예측 및 재고 추천 데이터를 조회할 수 있습니다.
         </section>
       )}
 
-      {!loading && actorId != null && dashboard && !hasData && (
+      {!loading && session && dashboard && !hasData && (
         <section className="empty-panel">
           아직 성공한 모델 실행 결과가 없습니다. Demand Forecast Experiment를 먼저 실행해 주세요.
         </section>
       )}
 
-      {dashboard && hasData && (
+      {session && dashboard && hasData && (
         <>
           <section className="dashboard-meta">
             <span>Dataset · {dashboard.datasetVersion}</span>
@@ -184,7 +237,7 @@ export default function OperatorDashboard() {
             <button
               type="button"
               className="text-button"
-              onClick={() => actorId && void loadDashboard(actorId)}
+              onClick={() => void loadDashboard()}
               disabled={loading}
             >
               {loading ? '갱신 중' : '새로고침'}
@@ -273,24 +326,15 @@ export default function OperatorDashboard() {
 
               <div className="risk-stack">
                 <div className="risk-item">
-                  <div>
-                    <span className="risk-dot risk-high" />
-                    <span>HIGH</span>
-                  </div>
+                  <div><span className="risk-dot risk-high" /><span>HIGH</span></div>
                   <strong>{dashboard.recommendations.highRiskOpenCount}</strong>
                 </div>
                 <div className="risk-item">
-                  <div>
-                    <span className="risk-dot risk-medium" />
-                    <span>MEDIUM</span>
-                  </div>
+                  <div><span className="risk-dot risk-medium" /><span>MEDIUM</span></div>
                   <strong>{dashboard.recommendations.mediumRiskOpenCount}</strong>
                 </div>
                 <div className="risk-item">
-                  <div>
-                    <span className="risk-dot risk-low" />
-                    <span>LOW</span>
-                  </div>
+                  <div><span className="risk-dot risk-low" /><span>LOW</span></div>
                   <strong>{dashboard.recommendations.lowRiskOpenCount}</strong>
                 </div>
               </div>
@@ -325,15 +369,10 @@ export default function OperatorDashboard() {
                       </div>
 
                       <div className="recommendation-numbers">
+                        <span>예측 <strong>{formatNumber(recommendation.predictedDemand)}</strong></span>
+                        <span>가용 <strong>{recommendation.availableQuantity}</strong></span>
                         <span>
-                          예측 <strong>{formatNumber(recommendation.predictedDemand)}</strong>
-                        </span>
-                        <span>
-                          가용 <strong>{recommendation.availableQuantity}</strong>
-                        </span>
-                        <span>
-                          추가 권장{' '}
-                          <strong>{recommendation.recommendedAdditionalQuantity}</strong>
+                          추가 권장 <strong>{recommendation.recommendedAdditionalQuantity}</strong>
                         </span>
                       </div>
 
@@ -348,9 +387,7 @@ export default function OperatorDashboard() {
                         type="button"
                         className="accept-button"
                         disabled={decisionId === recommendation.id}
-                        onClick={() =>
-                          void handleDecision(recommendation.id, 'ACCEPTED')
-                        }
+                        onClick={() => void handleDecision(recommendation.id, 'ACCEPTED')}
                       >
                         승인
                       </button>
@@ -358,9 +395,7 @@ export default function OperatorDashboard() {
                         type="button"
                         className="dismiss-button"
                         disabled={decisionId === recommendation.id}
-                        onClick={() =>
-                          void handleDecision(recommendation.id, 'DISMISSED')
-                        }
+                        onClick={() => void handleDecision(recommendation.id, 'DISMISSED')}
                       >
                         기각
                       </button>
