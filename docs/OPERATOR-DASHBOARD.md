@@ -49,16 +49,17 @@ OPEN recommendation을 HIGH / MEDIUM / LOW로 집계합니다.
 
 ## 인증
 
-현재 로그인 구현 전 단계이므로 화면에서 OPERATOR Actor ID를 입력합니다.
+운영자 화면은 이메일/비밀번호 로그인으로 JWT access token을 발급받습니다.
 
 ```text
-X-Actor-Id
-→ Backend Member 조회
-→ ACTIVE 확인
-→ DB role = OPERATOR 확인
+POST /api/v1/auth/login
+→ BCrypt password 검증
+→ JWT access token
+→ Authorization: Bearer <token>
+→ Backend에서 ACTIVE / DB role 재확인
 ```
 
-Actor ID는 브라우저 localStorage에 보관하지만 역할 자체는 Frontend에서 신뢰하지 않습니다.
+현재 Frontend는 access token을 localStorage에 보관합니다. 역할은 Frontend 값이 아니라 Backend에서 조회한 DB role을 기준으로 판단합니다.
 
 ## 개발 실행
 
