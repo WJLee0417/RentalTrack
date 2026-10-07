@@ -3,6 +3,7 @@ name: Backend Validation
 on:
   push:
     branches:
+      - main
       - refactor/rentaltrack-web-skeleton
     paths:
       - "backend/**"

@@ -3,6 +3,7 @@ name: Demand Forecast Experiment
 on:
   push:
     branches:
+      - main
       - refactor/rentaltrack-web-skeleton
     paths:
       - "ai/demand_forecasting/**"
