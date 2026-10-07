@@ -1,0 +1,38 @@
+name: Frontend Validation
+
+on:
+  push:
+    branches:
+      - main
+      - refactor/rentaltrack-web-skeleton
+    paths:
+      - "frontend/web/**"
+      - ".github/workflows/frontend-validation.yml"
+  pull_request:
+    paths:
+      - "frontend/web/**"
+      - ".github/workflows/frontend-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build

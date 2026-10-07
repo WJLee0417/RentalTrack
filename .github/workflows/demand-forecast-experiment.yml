@@ -1,0 +1,140 @@
+name: Demand Forecast Experiment
+
+on:
+  push:
+    branches:
+      - main
+      - refactor/rentaltrack-web-skeleton
+    paths:
+      - "ai/demand_forecasting/**"
+      - "backend/src/main/resources/db/migration/**"
+      - ".github/workflows/demand-forecast-experiment.yml"
+  workflow_dispatch:
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: rentaltrack_test
+          MYSQL_USER: rentaltrack
+          MYSQL_PASSWORD: rentaltrack
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      AI_DB_HOST: 127.0.0.1
+      AI_DB_PORT: "3306"
+      AI_DB_NAME: rentaltrack_test
+      AI_DB_USERNAME: rentaltrack
+      AI_DB_PASSWORD: rentaltrack
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "2"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai/demand_forecasting/pyproject.toml
+
+      - name: Install MySQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      - name: Apply Flyway SQL migrations
+        env:
+          MYSQL_PWD: rentaltrack
+        run: |
+          set -euo pipefail
+          for file in $(find backend/src/main/resources/db/migration -maxdepth 1 -name 'V*.sql' | sort -V); do
+            echo "Applying ${file}"
+            mysql \
+              --host=127.0.0.1 \
+              --port=3306 \
+              --user=rentaltrack \
+              rentaltrack_test < "${file}"
+          done
+
+      - name: Install experiment dependencies
+        working-directory: ai/demand_forecasting
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[experiment,test]"
+
+      - name: Run unit tests
+        working-directory: ai/demand_forecasting
+        run: pytest -q
+
+      - name: Run baseline vs TTM-R3 experiment
+        working-directory: ai/demand_forecasting
+        run: |
+          python -m rentaltrack_ai.experiment \
+            --output-dir artifacts/experiment \
+            --periods 720 \
+            --seed 42
+
+      - name: Export persisted database results
+        env:
+          MYSQL_PWD: rentaltrack
+        run: |
+          mkdir -p ai/demand_forecasting/artifacts/experiment
+
+          mysql \
+            --host=127.0.0.1 \
+            --port=3306 \
+            --user=rentaltrack \
+            --batch --raw \
+            rentaltrack_test \
+            -e "SELECT id, model_name, model_version, run_type, dataset_version, mae, rmse, status, started_at, completed_at FROM model_run ORDER BY id;" \
+            > ai/demand_forecasting/artifacts/experiment/model_run.tsv
+
+          mysql \
+            --host=127.0.0.1 \
+            --port=3306 \
+            --user=rentaltrack \
+            --batch --raw \
+            rentaltrack_test \
+            -e "SELECT id, model_run_id, rental_location_id, product_category_id, forecast_start_at, forecast_end_at, predicted_demand, generated_at FROM demand_forecast ORDER BY id;" \
+            > ai/demand_forecasting/artifacts/experiment/demand_forecast.tsv
+
+          mysql \
+            --host=127.0.0.1 \
+            --port=3306 \
+            --user=rentaltrack \
+            --batch --raw \
+            rentaltrack_test \
+            -e "SELECT ir.id, ir.demand_forecast_id, ir.available_quantity, ir.safety_stock, ir.recommended_additional_quantity, ir.risk_level, ir.status, ir.generated_at FROM inventory_recommendation ir ORDER BY ir.id;" \
+            > ai/demand_forecasting/artifacts/experiment/inventory_recommendation.tsv
+
+      - name: Print experiment summary
+        working-directory: ai/demand_forecasting
+        run: |
+          cat artifacts/experiment/experiment_summary.md
+          echo
+          cat artifacts/experiment/metrics.csv
+
+      - name: Upload experiment artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demand-forecast-experiment
+          path: ai/demand_forecasting/artifacts/experiment/
+          if-no-files-found: error
+          retention-days: 14

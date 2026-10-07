@@ -1,5 +1,2 @@
 include:
-  - local: 'backend/ci.yml'
-  # - local: 'frontend/ci.yml'
-  # - local: 'iot/ci.yml'
-  # - local: 'ai/ci.yml'
+  - local: "backend/ci.yml"
