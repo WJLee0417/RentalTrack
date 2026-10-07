@@ -1,6 +1,6 @@
 package com.rentaltrack.auth.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.rentaltrack.auth.application.JwtTokenProvider;
 import com.rentaltrack.auth.domain.AuthenticatedMember;
 import com.rentaltrack.global.error.ApiErrorResponse;
