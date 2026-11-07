@@ -1,6 +1,78 @@
 @import "@fontsource-variable/manrope";
 @import "@fontsource-variable/noto-sans-kr";
 
+.demo-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+  margin-bottom: 28px;
+  padding: 18px 20px;
+  background: #edf0e4;
+  border: 1px solid #dce3ce;
+  border-radius: 10px;
+  color: #394237;
+}
+.demo-banner > div:first-child {
+  flex: 1;
+  min-width: 180px;
+}
+.demo-banner strong {
+  font-size: 14px;
+}
+.demo-banner p {
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+.demo-banner label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  margin: 0;
+}
+.demo-banner select {
+  width: auto;
+  min-height: 42px;
+  min-width: 125px;
+  margin: 0;
+  background: #fff;
+}
+.demo-shortcuts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.demo-shortcuts button {
+  font-size: 13px;
+  padding: 8px 12px;
+  min-height: 40px;
+}
+@media (max-width: 680px) {
+  .demo-banner {
+    padding: 16px;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .demo-banner > div:first-child {
+    min-width: 120px;
+  }
+  .demo-banner label {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .demo-shortcuts {
+    width: 100%;
+    gap: 6px;
+  }
+  .demo-shortcuts button {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+}
+
 :root {
   font-family: "Manrope Variable", "Noto Sans KR Variable", sans-serif;
   color: #282c29;

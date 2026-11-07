@@ -10,6 +10,7 @@ import {
   Volleyball,
 } from "lucide-react";
 import type { Auth, Business, Item } from "./api";
+import { DEMO_MODE } from "./runtime";
 import { EmptyState, MoreButton, SectionHeading, StatusBadge } from "./ui";
 const categories = [
   { value: "ALL", label: "전체 상품" },
@@ -174,7 +175,8 @@ export default function InventoryPanel({
                   <span className="asset-code">{item.assetCode}</span>
                   <button
                     className="secondary product-action"
-                    disabled={busy || !item.requestable}
+                    disabled={busy || !item.requestable || DEMO_MODE}
+                    title={DEMO_MODE ? "공개 데모는 기록 조회 전용입니다" : undefined}
                     onClick={() => (auth ? onRequest(item.id) : onLogin())}
                   >
                     {auth ? "대여 신청" : "로그인 후 신청"}

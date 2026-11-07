@@ -19,7 +19,8 @@ import {
 import WorkspaceShell from "./WorkspaceShell";
 import InventoryPanel from "./InventoryPanel";
 import RentalList from "./RentalList";
-import { MoreButton, StatusBadge, type View } from "./ui";
+import { EmptyState, MoreButton, StatusBadge, type View } from "./ui";
+import { DEMO_MODE, demoIdentity, type DemoRole } from "./runtime";
 import LegacyImportPanel from "./LegacyImportPanel";
 import {
   api,
@@ -161,7 +162,9 @@ function Preview({ p, token }: { p: Photo; token: string }) {
   );
 }
 export default function App() {
-  const [auth, setAuth] = useState<Auth | null>(null),
+  const [auth, setAuth] = useState<Auth | null>(() =>
+      DEMO_MODE ? demoIdentity("CUSTOMER") : null,
+    ),
     [items, setItems] = useState<Item[]>([]),
     [businesses, setBusinesses] = useState<Business[]>([]),
     [codes, setCodes] = useState<Code[]>([]),
@@ -272,7 +275,9 @@ export default function App() {
           <h4>{title}</h4>
           <span className="form-heading-line" />
         </div>
-        <fieldset disabled={busy}>
+        <fieldset
+          disabled={busy || (DEMO_MODE && title !== "검수할 계약 조회")}
+        >
           {children}
           <button>{button}</button>
         </fieldset>
@@ -338,6 +343,7 @@ export default function App() {
     </label>
   );
   const editable = (c: Condition) =>
+    !DEMO_MODE &&
     !inspection &&
     r?.contractStatusCd ===
       (c.recordStageCd === "INTAKE" ? "REQUESTED" : "RETURNED");
@@ -649,6 +655,66 @@ export default function App() {
         className={"workspace-content view-" + view}
         aria-busy={busy}
       >
+        {DEMO_MODE && (
+          <section className="demo-banner" aria-label="공개 데모 안내">
+            <div>
+              <strong>공개 데모</strong>
+              <p>샘플 데이터 · 기록 조회 전용</p>
+            </div>
+            <label>
+              화면 역할
+              <select
+                aria-label="데모 역할"
+                value={auth?.role || "GUEST"}
+                onChange={(e) => {
+                  setDetail(null);
+                  setRentals([]);
+                  setError("");
+                  setNotice("");
+                  setAuth(
+                    e.target.value === "GUEST"
+                      ? null
+                      : demoIdentity(e.target.value as DemoRole),
+                  );
+                }}
+              >
+                <option value="GUEST">방문자</option>
+                <option value="CUSTOMER">일반회원</option>
+                <option value="INSPECTOR">검수담당자</option>
+                <option value="ADMIN">관리자</option>
+              </select>
+            </label>
+            {auth && (
+              <div
+                className="demo-shortcuts"
+                role="group"
+                aria-label="샘플 계약 바로가기"
+              >
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => openRental(1001)}
+                >
+                  대여 중 기록
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => openRental(1002)}
+                >
+                  반납 검수
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => openRental(1003)}
+                >
+                  완료된 기록
+                </button>
+              </div>
+            )}
+          </section>
+        )}
         <div className="page-heading">
           <div>
             <p className="page-kicker">
@@ -676,9 +742,11 @@ export default function App() {
               <RefreshCw size={18} />
             </button>
             {view !== "detail" && view !== "account" && view !== "admin" && (
-              <button onClick={() => navigate("products")}>
+              <button
+                onClick={() => navigate(DEMO_MODE ? "rentals" : "products")}
+              >
                 <Plus size={17} />
-                대여 신청
+                {DEMO_MODE ? "대여 이력" : "대여 신청"}
               </button>
             )}
           </div>
@@ -859,7 +927,26 @@ export default function App() {
             {history()}
           </>
         )}
-        {view === "account" && !auth && (
+        {view === "account" && !auth && DEMO_MODE && (
+          <EmptyState
+            title="체험할 화면을 선택하세요"
+            description="샘플 회원이나 관리자로 대여 기록을 둘러볼 수 있습니다."
+            action={
+              <>
+                <button onClick={() => setAuth(demoIdentity("CUSTOMER"))}>
+                  일반회원 화면
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setAuth(demoIdentity("ADMIN"))}
+                >
+                  관리자 화면
+                </button>
+              </>
+            }
+          />
+        )}
+        {view === "account" && !auth && !DEMO_MODE && (
           <section className="account-layout">
             <div className="account-copy">
               <span className="account-mark">
@@ -1013,7 +1100,7 @@ export default function App() {
                 )}
                 <button
                   className="secondary"
-                  disabled={busy}
+                  disabled={busy || DEMO_MODE}
                   onClick={() =>
                     void run(() => mutate(`/api/v2/rentals/${r.id}/cancel`))
                   }
@@ -1132,7 +1219,7 @@ export default function App() {
                 ))}
                 {staff && inspection.inspectionStatusCd === "DRAFT" && (
                   <button
-                    disabled={busy}
+                    disabled={busy || DEMO_MODE}
                     onClick={() =>
                       void run(() =>
                         mutate(`/api/v2/inspections/${inspection.id}/begin`),
@@ -1192,7 +1279,7 @@ export default function App() {
                       </>,
                     )}
                     <button
-                      disabled={busy}
+                      disabled={busy || DEMO_MODE}
                       onClick={() =>
                         void run(() =>
                           mutate(
@@ -1231,6 +1318,11 @@ export default function App() {
           auth?.role === "ADMIN" && (
             <section className="management-panel">
               <h2>사업자·개별 상품 등록</h2>
+              {DEMO_MODE && (
+                <p className="hint">
+                  공개 데모에서는 등록 양식을 조회할 수 있습니다.
+                </p>
+              )}
               <div className="admin-grid">
                 {form(
                   "사업자 등록",
@@ -1280,12 +1372,18 @@ export default function App() {
 
         {view === "admin" &&
           adminTab === "migration" &&
-          auth?.role === "ADMIN" && (
+          auth?.role === "ADMIN" &&
+          (DEMO_MODE ? (
+            <EmptyState
+              title="공개 데모에는 이전할 이력이 없습니다"
+              description="사업자·상품·회원·상태 매핑은 원본 자료를 연결한 환경에서 진행합니다."
+            />
+          ) : (
             <LegacyImportPanel
               token={auth.accessToken}
               onImported={() => reload(r?.id)}
             />
-          )}
+          ))}
       </main>
     </WorkspaceShell>
   );

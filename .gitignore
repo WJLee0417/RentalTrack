@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!frontend/web/.env.demo
 
 # Java / Gradle
 .gradle/
@@ -11,6 +12,8 @@
 # Node
 **/node_modules/
 **/dist/
+**/test-results/
+**/playwright-report/
 
 # IDE / OS
 .idea/
