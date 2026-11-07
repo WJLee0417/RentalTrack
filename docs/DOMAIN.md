@@ -1,116 +1,55 @@
-# RentalTrack Domain v1.0
+# 도메인과 상태 전이
 
-## 문제 정의
-
-RentalTrack은 이동 중 갑자기 필요한 생활용품을 주변 대여 지점에서 찾고 대여·반납할 수 있도록 하며, 반복 대여되는 개별 상품의 상태·사진·손상 이력을 대여 건 단위로 추적하는 웹 서비스입니다.
-
-## Phase 1 확정 도메인
-
-### Member
-서비스 이용자.
-
-### RentalLocation
-상품을 인수·반납할 수 있는 대여 지점.
-
-### ProductCategory
-보조배터리, 충전기, 멀티어댑터, 휴대용 선풍기, 접이식 카트 등의 상품 분류.
-
-### RentalProduct
-반복 대여되는 개별 상품.
+## 대여
 
 ```text
-AVAILABLE
-RESERVED
-RENTED
-INSPECTION
-MAINTENANCE
-RETIRED
+REQUESTED → RENTED → RETURNED → INSPECTED
+     └──→ CANCELED
 ```
 
-### RentalContract
-회원과 개별 상품 사이의 한 번의 대여 건.
+- 신청: ACTIVE 사업자의 AVAILABLE 상품만 허용. 상품 행 잠금 후 REQUESTED·RENTED·RETURNED 계약 유무 검사.
+- 신청 중 상품의 상태는 AVAILABLE을 유지하지만 `requestable=false`. 별도 RESERVED 코드는 추가하지 않음.
+- 이용 시작: 최신 INTAKE 기록이 확정돼 있어야 함. 사진 없이 확정할 수 없음. 상품은 RENTED로 전환.
+- 반납: 실제 반납 시각이 대여 시작 이후여야 함. 상품은 INSPECTION으로 전환.
+- 검수 완료: 신규 손상이 있으면 상품 REPAIR, 없으면 AVAILABLE. 계약은 INSPECTED.
+- 취소는 REQUESTED 상태에서만 가능.
+
+## 상태 기록
+
+- 계약·단계(INTAKE/RETURN)·차수 조합을 유일하게 관리.
+- INTAKE는 REQUESTED, RETURN은 RETURNED 상태에서 작성.
+- 최초 차수 생성 → 상태 설명·사진·손상·증거 연결 → 확정.
+- 확정 기록의 설명·사진·손상·증거는 변경 불가.
+- 다음 차수는 최신 확정 기록에서만 생성. 기존 사진·관찰·증거 연결을 새 ID로 복사한 미확정 기록 생성. 설명·관찰은 새 차수에서 수정.
+- 사진의 원본 파일·해시는 공유하되, 사진 메타데이터와 손상·증거 연결은 차수별 별도 레코드.
+- 이용 시작 후 인수 기록을 소급 변경하지 않음. 검수 생성 후 추가 차수·관찰 변경 차단.
+
+## 검수와 판정
 
 ```text
-REQUESTED
-→ APPROVED
-→ PICKED_UP
-→ IN_USE
-→ RETURNED
-→ INSPECTING
-→ COMPLETED
+DRAFT → IN_PROGRESS → COMPLETED
 ```
 
-예외:
+- 검수 생성 시 같은 계약에 속한 확정 INTAKE·RETURN 기록을 명시적으로 선택.
+- 검수 생성 후 기준 기록을 바꾸는 API는 제공하지 않음.
+- 검수 담당자·관리자만 검수 생성·진행·판정·완료 가능.
+- 반납 손상은 선택한 RETURN 기록, 대응 인수 손상은 선택한 INTAKE 기록에 속해야 함.
+- EXISTING: 인수 손상 참조 필수. NEW/HOLD: 인수 손상 참조 없음. 판정 사유 저장.
+- 선택한 반납 기록의 모든 손상에 판정이 있어야 완료 가능. HOLD가 남으면 완료 차단.
+- 최종 결과는 판정에서 계산. NEW가 하나라도 있으면 NEW_DAMAGE, 없으면 NO_NEW_DAMAGE.
+- 유형·위치가 같다는 이유만으로 자동으로 기존 손상이라고 확정하지 않음.
 
-```text
-REJECTED
-CANCELED
-```
+## 사진과 이미지 분석
 
-### ConditionRecord
-한 RentalContract의 대여 전·후 상태 기록.
+- PNG/JPEG 파일 검증, 10 MiB·20메가픽셀 제한, 파일 해시 저장.
+- 증거 사진과 손상 관찰은 같은 상태 기록에 속해야 함.
+- 영역 비율은 이미지 안에 있어야 함. 증거 사진은 영역 없이도 연결 가능.
+- 이미지 분석 결과는 외부에서 전달받은 검출 후보. 모델·버전·실행·순번·신뢰도·영역·분석 시점 저장.
+- 후보 결과 등록은 검수 담당자·관리자만 가능. 결과 등록이 관찰·판정·검수 결과를 자동으로 변경하지 않음.
 
-```text
-BEFORE_RENTAL
-AFTER_RENTAL
-```
+## 권한
 
-### ConditionImage
-ConditionRecord에 속한 사진 메타데이터.
-
-### DamageRecord
-ConditionRecord에서 확인한 개별 손상.
-
-```text
-DamageComparisonResult
-
-BASELINE
-UNRESOLVED
-EXISTING
-NEW
-```
-
-`EXISTING`인 대여 후 손상은 `matchedBeforeDamage`를 통해 대응되는 대여 전 손상을 직접 가리킵니다.
-
-### ReturnInspection
-대여 전·후 상태와 DamageRecord 비교가 끝난 뒤 RentalContract 단위로 저장하는 최종 검수 결과.
-
-```text
-NO_NEW_DAMAGE
-NEW_DAMAGE_CONFIRMED
-REVIEW_REQUIRED
-```
-
-## 핵심 관계
-
-```text
-Member
-  └─ RentalContract
-       ├─ pickup RentalLocation
-       ├─ return RentalLocation
-       ├─ RentalProduct
-       │    └─ ProductCategory
-       ├─ BEFORE_RENTAL ConditionRecord
-       │    ├─ ConditionImage[]
-       │    └─ DamageRecord(BASELINE)[]
-       ├─ AFTER_RENTAL ConditionRecord
-       │    ├─ ConditionImage[]
-       │    └─ DamageRecord[]
-       │         ├─ EXISTING → BEFORE DamageRecord
-       │         └─ NEW
-       └─ ReturnInspection
-```
-
-## Phase 1 핵심 설계 원칙
-
-1. 상품의 상태 이력을 단일 현재 값에 덮어쓰지 않는다.
-2. 반복 대여 이력은 RentalContract로 분리한다.
-3. 대여 전·후 상태는 같은 RentalContract 안에서 별도 ConditionRecord로 보존한다.
-4. 사진은 ConditionRecord에 귀속시키고 DB에는 저장 위치와 메타데이터만 저장한다.
-5. 손상은 DamageRecord로 구조화하고 대여 후 기존 손상은 대여 전 기록과 직접 연결한다.
-6. ReturnInspection은 손상 개별 기록과 분리된 계약 단위 최종 검수 결과다.
-7. 과거 계약·상태·손상·검수 이력을 깨뜨리는 물리 삭제를 기본 운영 방식으로 사용하지 않는다.
-8. 손상 책임 판단을 AI가 자동 확정하지 않는다.
-9. AI 수요 예측은 별도의 운영 의사결정 지원 기능으로 둔다.
-
-상세 물리 모델은 [ERD.md](./ERD.md)를 기준으로 합니다.
+- CUSTOMER: 자신의 계약·기록·사진·관찰, 대여 신청·이용·반납.
+- INSPECTOR: 계약 조회, 상태 기록 처리, 반납 검수·판정, 이미지 분석 결과 등록.
+- ADMIN: 검수 담당자 권한과 사업자·개별 상품 등록.
+- 목록의 상품·사업자·공통코드는 공개. 계약과 사진 원본은 인증·소속 검사 후 제공.

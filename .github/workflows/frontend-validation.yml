@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - refactor/rentaltrack-web-skeleton
+      - "codex/**"
     paths:
       - "frontend/web/**"
       - ".github/workflows/frontend-validation.yml"
@@ -32,7 +33,7 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Build frontend
         run: npm run build

@@ -7,74 +7,86 @@ import com.rentaltrack.global.error.AuthenticationRequiredException;
 import com.rentaltrack.member.domain.Member;
 import com.rentaltrack.member.domain.MemberStatus;
 import com.rentaltrack.member.repository.MemberRepository;
+import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
-
 @Service
 public class AuthService {
 
-    private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
+  private final MemberRepository memberRepository;
+  private final PasswordEncoder passwordEncoder;
+  private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthService(
-            MemberRepository memberRepository,
-            PasswordEncoder passwordEncoder,
-            JwtTokenProvider jwtTokenProvider
+  public AuthService(
+    MemberRepository memberRepository,
+    PasswordEncoder passwordEncoder,
+    JwtTokenProvider jwtTokenProvider
+  ) {
+    this.memberRepository = memberRepository;
+    this.passwordEncoder = passwordEncoder;
+    this.jwtTokenProvider = jwtTokenProvider;
+  }
+
+  @Transactional
+  public AuthResponse register(RegisterRequest request) {
+    String email = normalizeEmail(request.email());
+
+    if (
+      memberRepository.existsByEmailIgnoreCase(email) ||
+      memberRepository.existsByLoginIdIgnoreCase(request.loginId().trim())
     ) {
-        this.memberRepository = memberRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtTokenProvider = jwtTokenProvider;
+      throw new IllegalStateException(
+        "Login ID or email is already registered"
+      );
     }
 
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        String email = normalizeEmail(request.email());
+    Member member = memberRepository.save(
+      new Member(
+        request.loginId().trim().toLowerCase(Locale.ROOT),
+        email,
+        request.name().trim(),
+        passwordEncoder.encode(request.password())
+      )
+    );
 
-        if (memberRepository.existsByEmailIgnoreCase(email)) {
-            throw new IllegalStateException("Email is already registered");
-        }
+    return issue(member);
+  }
 
-        Member member = memberRepository.save(new Member(
-                email,
-                request.name().trim(),
-                passwordEncoder.encode(request.password())
-        ));
+  @Transactional(readOnly = true)
+  public AuthResponse login(LoginRequest request) {
+    Member member = memberRepository
+      .findByLoginIdIgnoreCase(request.loginId().trim())
+      .orElseThrow(() ->
+        new AuthenticationRequiredException("Login ID or password is invalid")
+      );
 
-        return issue(member);
+    if (member.getStatus() != MemberStatus.ACTIVE) {
+      throw new AuthenticationRequiredException("Member is not active");
     }
 
-    @Transactional(readOnly = true)
-    public AuthResponse login(LoginRequest request) {
-        Member member = memberRepository.findByEmailIgnoreCase(normalizeEmail(request.email()))
-                .orElseThrow(() -> new AuthenticationRequiredException(
-                        "Email or password is invalid"
-                ));
-
-        if (member.getStatus() != MemberStatus.ACTIVE) {
-            throw new AuthenticationRequiredException("Member is not active");
-        }
-
-        if (member.getPasswordHash() == null
-                || !passwordEncoder.matches(request.password(), member.getPasswordHash())) {
-            throw new AuthenticationRequiredException("Email or password is invalid");
-        }
-
-        return issue(member);
+    if (
+      member.getPasswordHash() == null ||
+      !passwordEncoder.matches(request.password(), member.getPasswordHash())
+    ) {
+      throw new AuthenticationRequiredException(
+        "Login ID or password is invalid"
+      );
     }
 
-    private AuthResponse issue(Member member) {
-        return AuthResponse.of(
-                jwtTokenProvider.issue(member.getId()),
-                jwtTokenProvider.accessTokenSeconds(),
-                member
-        );
-    }
+    return issue(member);
+  }
 
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
-    }
+  private AuthResponse issue(Member member) {
+    return AuthResponse.of(
+      jwtTokenProvider.issue(member.getId()),
+      jwtTokenProvider.accessTokenSeconds(),
+      member
+    );
+  }
+
+  private String normalizeEmail(String email) {
+    return email.trim().toLowerCase(Locale.ROOT);
+  }
 }
