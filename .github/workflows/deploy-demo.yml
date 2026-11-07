@@ -1,0 +1,87 @@
+name: Deploy RentalTrack demo to GitHub Pages
+
+on:
+  push:
+    branches: [refactor/rentaltrack-web-skeleton]
+    paths: ["frontend/web/**", ".github/workflows/deploy-demo.yml"]
+  pull_request:
+    branches: [refactor/rentaltrack-web-skeleton]
+    paths: ["frontend/web/**", ".github/workflows/deploy-demo.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentaltrack-pages-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Build read-only demo
+        run: npm run build:demo
+        env:
+          VITE_BASE_PATH: /RentalTrack-Demo/
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Verify demo without API server
+        run: npm run check:demo
+      - name: Upload browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-browser-traces
+          path: frontend/web/test-results/
+          retention-days: 7
+      - name: Upload static demo
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/refactor/rentaltrack-web-skeleton'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rentaltrack-demo-site
+          path: frontend/web/dist
+          include-hidden-files: true
+          retention-days: 7
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/refactor/rentaltrack-web-skeleton'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rentaltrack-demo-site
+          path: dist
+      - name: Publish compiled site to demo repository
+        env:
+          DEPLOY_KEY: ${{ secrets.RENTALTRACK_DEMO_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/rentaltrack-demo-key"
+          hosts="$RUNNER_TEMP/rentaltrack-demo-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          curl --fail --silent --show-error https://api.github.com/meta | jq -r '.ssh_keys[] | "github.com " + .' > "$hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
+          target="$RUNNER_TEMP/rentaltrack-demo"
+          git clone --depth 1 git@github.com:WJLee0417/RentalTrack-Demo.git "$target"
+          mkdir -p "$target/site"
+          rsync -a --delete dist/ "$target/site/"
+          git -C "$target" config user.name 'github-actions[bot]'
+          git -C "$target" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$target" add site
+          if git -C "$target" diff --cached --quiet; then exit 0; fi
+          git -C "$target" commit -m 'Deploy RentalTrack public demo'
+          git -C "$target" push origin main

@@ -192,7 +192,7 @@ export default function WorkspaceShell({
           </button>
         ))}
       </nav>
-      <dialog ref={dialog} className="mobile-menu">
+      <dialog ref={dialog} className="mobile-menu" aria-label="워크스페이스 메뉴">
         <div className="mobile-menu-header">
           {brand}
           <button

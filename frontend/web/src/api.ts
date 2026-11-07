@@ -89,6 +89,10 @@ export async function api<T>(
   method = "GET",
   body?: unknown,
 ): Promise<T> {
+  if (import.meta.env.VITE_DEMO_MODE === "true") {
+    const { demoApi } = await import("./demo");
+    return demoApi<T>(url, token, method);
+  }
   const multipart = body instanceof FormData;
   const response = await fetch(url, {
     method,
