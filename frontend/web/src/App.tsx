@@ -1,4 +1,25 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Box,
+  Check,
+  ClipboardCheck,
+  ClipboardList,
+  FileCheck2,
+  Image as ImageIcon,
+  Layers3,
+  LockKeyhole,
+  Plus,
+  RefreshCw,
+  Route,
+  ShieldCheck,
+} from "lucide-react";
+import WorkspaceShell from "./WorkspaceShell";
+import InventoryPanel from "./InventoryPanel";
+import RentalList from "./RentalList";
+import { MoreButton, StatusBadge, type View } from "./ui";
 import LegacyImportPanel from "./LegacyImportPanel";
 import {
   api,
@@ -73,7 +94,11 @@ const names: Record<string, string> = {
 const label = (s: string) => names[s] || s;
 function Preview({ p, token }: { p: Photo; token: string }) {
   const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false),
+    [retry, setRetry] = useState(0);
   useEffect(() => {
+    setFailed(false);
+    setUrl("");
     let active = true,
       current = "";
     void fetch(p.contentUrl, { headers: { Authorization: `Bearer ${token}` } })
@@ -86,14 +111,32 @@ function Preview({ p, token }: { p: Photo; token: string }) {
         if (active) setUrl(current);
         else URL.revokeObjectURL(current);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setFailed(true);
+      });
     return () => {
       active = false;
       if (current) URL.revokeObjectURL(current);
     };
-  }, [p.contentUrl, token]);
+  }, [p.contentUrl, token, retry]);
   return (
     <figure>
+      {!url && (
+        <div className="photo-placeholder">
+          <ImageIcon size={25} strokeWidth={1.4} />
+          <span>
+            {failed ? "사진을 불러오지 못했습니다" : "사진을 불러오는 중"}
+          </span>
+          {failed && (
+            <button
+              className="secondary"
+              onClick={() => setRetry((v) => v + 1)}
+            >
+              다시 불러오기
+            </button>
+          )}
+        </div>
+      )}
       {url && (
         <img
           src={url}
@@ -127,6 +170,35 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const [view, setView] = useState<View>("overview"),
+    [adminTab, setAdminTab] = useState<"catalog" | "migration">("catalog"),
+    [accountTab, setAccountTab] = useState<"login" | "register">("login"),
+    [loaded, setLoaded] = useState(false);
+  const navigate = (next: View) => {
+    setNotice("");
+    setError("");
+    setView(
+      next === "rentals" && !auth
+        ? "account"
+        : next === "admin" && auth?.role !== "ADMIN"
+          ? "overview"
+          : next,
+    );
+  };
+  const openRental = (id: number) =>
+    void run(async () => {
+      setDetail(await api<Detail>(`/api/v2/rentals/${id}`, auth?.accessToken));
+      setView("detail");
+    });
+  useEffect(() => {
+    setView("overview");
+  }, [auth?.memberId]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
+  useEffect(() => {
+    if (detail?.rental.id) setView("detail");
+  }, [detail?.rental.id]);
   const token = auth?.accessToken,
     staff = !!auth && auth.role !== "CUSTOMER",
     r = detail?.rental,
@@ -137,6 +209,7 @@ export default function App() {
       api<Business[]>("/api/v2/catalog/businesses"),
       api<Code[]>("/api/v2/catalog/codes"),
     ]);
+    setLoaded(true);
     setItems(a);
     setBusinesses(b);
     setCodes(c);
@@ -147,13 +220,13 @@ export default function App() {
   useEffect(() => {
     void reload().catch((e) => setError(e.message));
   }, [token]);
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, success = "") {
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await action();
-      setNotice("반영했습니다.");
+      setNotice(success);
     } catch (e) {
       setError(e instanceof Error ? e.message : "처리 실패");
     } finally {
@@ -183,10 +256,22 @@ export default function App() {
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
           const f = e.currentTarget;
-          void run(() => action(f));
+          void run(
+            () => action(f),
+            title === "로그인"
+              ? "로그인했습니다."
+              : title === "새 회원"
+                ? "회원가입을 완료했습니다."
+                : title === "검수할 계약 조회"
+                  ? ""
+                  : "저장했습니다.",
+          );
         }}
       >
-        <h4>{title}</h4>
+        <div className="form-heading">
+          <h4>{title}</h4>
+          <span className="form-heading-line" />
+        </div>
         <fieldset disabled={busy}>
           {children}
           <button>{button}</button>
@@ -202,7 +287,25 @@ export default function App() {
   ) => (
     <label>
       {title}
-      <input name={name} type={type} required={required} />
+      <input
+        name={name}
+        type={type}
+        required={required}
+        autoComplete={
+          name === "password"
+            ? accountTab === "register"
+              ? "new-password"
+              : "current-password"
+            : name === "loginId"
+              ? "username"
+              : name === "email"
+                ? "email"
+                : name === "name"
+                  ? "name"
+                  : undefined
+        }
+        step={type === "datetime-local" ? 1 : undefined}
+      />
     </label>
   );
   const select = (
@@ -267,16 +370,25 @@ export default function App() {
           <h3>
             {label(c.recordStageCd)} 기록 · {c.recordRevisionNo}차
           </h3>
-          <span className="badge">{c.confirmed ? "확정" : "작성 중"}</span>
+          <StatusBadge
+            status={c.confirmed ? "COMPLETED" : "DRAFT"}
+            label={c.confirmed ? "확정" : "작성 중"}
+          />
         </header>
-        <p>{c.recordNote}</p>
+        <p className="condition-note">
+          {c.recordNote || "상태 설명이 없습니다."}
+        </p>
         <div className="photos">
           {c.photos.map((p) => (
             <Preview key={p.id} p={p} token={token!} />
           ))}
         </div>
         {editable(c) && !c.confirmed && (
-          <>
+          <details className="condition-editor" open={c.photos.length === 0}>
+            <summary>
+              <Plus size={16} />
+              기록 편집<span>설명 · 사진 · 손상 관찰</span>
+            </summary>
             {form(
               "상태 설명 수정",
               (f) =>
@@ -311,7 +423,7 @@ export default function App() {
                 mutate(`/api/v2/conditions/${c.id}/damages`, damageBody(f)),
               damageFields(),
             )}
-          </>
+          </details>
         )}
         {c.damages.map((d) => (
           <section className="damage" key={d.id}>
@@ -442,169 +554,412 @@ export default function App() {
       </article>
     );
   }
+
+  const currentConditions = detail
+    ? ["INTAKE", "RETURN"].flatMap((stage) => {
+        const fixed = inspection
+          ? stage === "INTAKE"
+            ? inspection.intakeConditionId
+            : inspection.returnConditionId
+          : undefined;
+        const record = fixed
+          ? detail.conditions.find((c) => c.id === fixed)
+          : detail.conditions
+              .filter((c) => c.recordStageCd === stage)
+              .sort((a, b) => b.recordRevisionNo - a.recordRevisionNo)[0];
+        return record ? [record] : [];
+      })
+    : [];
+  const otherConditions =
+    detail?.conditions.filter(
+      (c) => !currentConditions.some((current) => current.id === c.id),
+    ) || [];
+  const pending = rentals.filter((item) =>
+    ["REQUESTED", "RENTED", "RETURNED"].includes(item.contractStatusCd),
+  ).length;
+  const latestIntake = detail?.conditions
+    .filter((c) => c.recordStageCd === "INTAKE")
+    .sort((a, b) => b.recordRevisionNo - a.recordRevisionNo)[0];
+  const progress =
+    r?.contractStatusCd === "INSPECTED"
+      ? 4
+      : r?.contractStatusCd === "RETURNED"
+        ? 3
+        : r?.contractStatusCd === "RENTED"
+          ? 2
+          : r?.contractStatusCd === "REQUESTED"
+            ? latestIntake?.confirmed
+              ? 1
+              : 0
+            : -1;
+  const heading = {
+    overview: ["대여 현황", "상품과 계약의 현재 상태를 확인하세요."],
+    products: ["렌탈 상품", "필요한 상품을 찾고 대여를 신청하세요."],
+    rentals: ["대여 이력", "신청부터 반납 검수까지 계약별 기록을 확인하세요."],
+    admin: ["운영 관리", "사업자와 상품을 등록하고 기존 이력을 연결하세요."],
+    account: ["RentalTrack 계정", "대여 이력과 상태 기록을 계정에 보관하세요."],
+    detail: ["계약 상세", "인수와 반납 기록을 한곳에서 비교하세요."],
+  }[view];
+  const requestItem = (itemId: number) =>
+    void run(async () => {
+      const next = await api<Rental>("/api/v2/rentals", token, "POST", {
+        itemId,
+      });
+      await reload(next.id);
+    }, "대여 신청을 접수했습니다.");
+  const inventory = (compact = false) => (
+    <InventoryPanel
+      items={items}
+      businesses={businesses}
+      auth={auth}
+      busy={busy}
+      compact={compact}
+      onRequest={requestItem}
+      onViewAll={() => navigate("products")}
+      onLogin={() => navigate("account")}
+      onManage={() => navigate("admin")}
+    />
+  );
+  const history = (compact = false) => (
+    <RentalList
+      rentals={rentals}
+      items={items}
+      busy={busy}
+      compact={compact}
+      onSelect={openRental}
+      onViewAll={() => navigate("rentals")}
+      onBrowse={() => navigate("products")}
+    />
+  );
   return (
-    <>
-      <header className="top">
-        <a href="/">RentalTrack</a>
-        <span>대여 · 상태 기록 · 반납 검수</span>
-        {auth && (
+    <WorkspaceShell
+      view={view}
+      auth={auth}
+      navigate={navigate}
+      logout={() => {
+        setAuth(null);
+        setDetail(null);
+        setRentals([]);
+        setNotice("");
+        setView("overview");
+      }}
+    >
+      <main
+        id="workspace-content"
+        className={"workspace-content view-" + view}
+        aria-busy={busy}
+      >
+        <div className="page-heading">
           <div>
-            {auth.name} · {label(auth.role)}{" "}
-            <button
-              className="secondary"
-              onClick={() => {
-                setAuth(null);
-                setDetail(null);
-                setRentals([]);
-              }}
-            >
-              로그아웃
-            </button>
+            <p className="page-kicker">
+              {view === "overview"
+                ? "렌탈 워크스페이스"
+                : view === "detail"
+                  ? "계약별 기록"
+                  : "RentalTrack"}
+            </p>
+            <h1>
+              {heading[0]}
+              <span className="heading-dot">.</span>
+            </h1>
+            <p className="page-description">{heading[1]}</p>
           </div>
-        )}
-      </header>
-      <main aria-busy={busy}>
-        <p className="eyebrow">RENTAL HISTORY</p>
-        <h1>
-          인수부터 반납 검수까지,
-          <br />
-          하나의 대여 이력으로.
-        </h1>
+          <div className="page-actions">
+            <button
+              className="icon-button refresh-button"
+              disabled={busy}
+              aria-label="목록 새로고침"
+              onClick={() =>
+                void run(() => reload(r?.id), "목록을 새로 불러왔습니다.")
+              }
+            >
+              <RefreshCw size={18} />
+            </button>
+            {view !== "detail" && view !== "account" && view !== "admin" && (
+              <button onClick={() => navigate("products")}>
+                <Plus size={17} />
+                대여 신청
+              </button>
+            )}
+          </div>
+        </div>
         {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
+          <div role="alert" className="error">
+            <ShieldCheck size={19} />
+            <div>
+              <strong>요청을 처리하지 못했습니다</strong>
+              <p>{error}</p>
+            </div>
+          </div>
         )}
         {notice && (
           <p role="status" className="notice">
+            <Check size={17} />
             {notice}
           </p>
         )}
-        {!auth && (
-          <div className="auth-grid">
-            {form(
-              "로그인",
-              async (f) =>
-                setAuth(
-                  await api<Auth>("/api/v1/auth/login", undefined, "POST", {
-                    loginId: value(f, "loginId"),
-                    password: value(f, "password"),
-                  }),
-                ),
-              <>
-                {field("loginId", "아이디")}
-                {field("password", "비밀번호", "password")}
-              </>,
-              "로그인",
-            )}
-            <details>
-              <summary>회원가입</summary>
-              {form(
-                "새 회원",
-                async (f) =>
-                  setAuth(
-                    await api<Auth>(
-                      "/api/v1/auth/register",
-                      undefined,
-                      "POST",
-                      {
-                        loginId: value(f, "loginId"),
-                        name: value(f, "name"),
-                        email: value(f, "email"),
-                        password: value(f, "password"),
-                      },
-                    ),
-                  ),
-                <>
-                  {field("loginId", "아이디 (영문·숫자·._- 3~50자)")}
-                  {field("name", "이름")}
-                  {field("email", "이메일", "email")}
-                  {field("password", "비밀번호 (10~72자)", "password")}
-                </>,
-                "가입",
-              )}
-            </details>
-          </div>
-        )}
-        <section>
-          <h2>렌탈 상품</h2>
-          {!items.length && <p className="hint">등록된 상품이 없습니다.</p>}
-          <div className="catalog">
-            {items.map((i) => (
-              <article key={i.id}>
-                <p className="eyebrow">{label(i.categoryCd)}</p>
-                <h3>{i.itemName}</h3>
-                <p>
-                  {businesses.find((b) => b.id === i.businessId)?.businessName}{" "}
-                  · {i.assetCode}
-                </p>
-                <span className="badge">
-                  {i.requestable
-                    ? "대여 가능"
-                    : i.itemStatusCd === "AVAILABLE"
-                      ? "신청 중"
-                      : label(i.itemStatusCd)}
-                </span>
-                {auth && (
-                  <button
-                    disabled={busy || !i.requestable}
-                    onClick={() =>
-                      void run(async () => {
-                        const next = await api<Rental>(
-                          "/api/v2/rentals",
-                          token,
-                          "POST",
-                          { itemId: i.id },
-                        );
-                        await reload(next.id);
-                      })
-                    }
-                  >
-                    대여 신청
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-        {auth && (
-          <section>
-            <h2>내 대여 이력</h2>
-            <div className="rental-list">
-              {rentals.map((x) => (
-                <button
-                  className={x.id === r?.id ? "" : "secondary"}
-                  disabled={busy}
-                  key={x.id}
-                  onClick={() =>
-                    void run(async () =>
-                      setDetail(
-                        await api<Detail>(`/api/v2/rentals/${x.id}`, token),
-                      ),
-                    )
-                  }
-                >
-                  #{x.id} · {label(x.contractStatusCd)}
-                </button>
+        {view === "overview" && (
+          <>
+            <section className="summary-strip" aria-label="대여 요약">
+              {[
+                {
+                  label: "등록 상품",
+                  value: items.length,
+                  unit: "개",
+                  icon: Box,
+                  note: "전체 렌탈 상품",
+                },
+                {
+                  label: "대여 가능",
+                  value: items.filter((i) => i.requestable).length,
+                  unit: "개",
+                  icon: Layers3,
+                  note: "지금 신청 가능한 상품",
+                },
+                {
+                  label: "내 진행 계약",
+                  value: pending,
+                  unit: "건",
+                  icon: ClipboardList,
+                  note: "신청 · 대여 · 반납",
+                },
+                {
+                  label: "내 완료 계약",
+                  value: rentals.filter(
+                    (i) => i.contractStatusCd === "INSPECTED",
+                  ).length,
+                  unit: "건",
+                  icon: ClipboardCheck,
+                  note: "최종 검수 완료",
+                },
+              ].map(({ label, value, unit, icon: Icon, note }) => (
+                <div className="summary-item" key={label}>
+                  <div className="summary-label">
+                    {label}
+                    <Icon size={18} strokeWidth={1.5} />
+                  </div>
+                  <div className="summary-value">
+                    {loaded && (!label.startsWith("내") || auth)
+                      ? String(value).padStart(2, "0")
+                      : "—"}
+                    <small>{unit}</small>
+                  </div>
+                  <p>
+                    {!auth && label.startsWith("내") ? "로그인 후 확인" : note}
+                  </p>
+                </div>
               ))}
+            </section>
+            <div className="overview-grid">
+              <div className="overview-inventory">
+                {inventory(true)}
+                <div className="workflow-note">
+                  <span>
+                    <Route size={21} />
+                  </span>
+                  <div>
+                    <strong>계약 하나에, 필요한 기록을 모두</strong>
+                    <p>상품 신청 → 인수 기록 → 이용·반납 → 최종 검수</p>
+                  </div>
+                  <MoreButton
+                    onClick={() => navigate(auth ? "rentals" : "account")}
+                  >
+                    기록 확인
+                  </MoreButton>
+                </div>
+              </div>
+              <aside className="overview-aside">
+                {auth ? (
+                  history(true)
+                ) : (
+                  <section className="welcome-panel">
+                    <span className="welcome-mark">
+                      <LockKeyhole size={25} strokeWidth={1.5} />
+                    </span>
+                    <h2>내 기록을 이어가세요</h2>
+                    <p>
+                      로그인하면 대여 상태와 인수·반납 기록을 확인할 수
+                      있습니다.
+                    </p>
+                    <button onClick={() => navigate("account")}>
+                      로그인
+                      <ArrowRight size={16} />
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setAccountTab("register");
+                        navigate("account");
+                      }}
+                    >
+                      계정 만들기
+                      <ArrowUpRight size={15} />
+                    </button>
+                  </section>
+                )}
+                <div className="process-panel">
+                  <p className="panel-label">대여 기록 순서</p>
+                  {[
+                    {
+                      icon: Box,
+                      title: "상품 신청",
+                      description: "개별 상품과 대여 계약 연결",
+                    },
+                    {
+                      icon: ImageIcon,
+                      title: "상태 기록",
+                      description: "인수·반납 사진과 손상 관찰",
+                    },
+                    {
+                      icon: FileCheck2,
+                      title: "반납 검수",
+                      description: "같은 계약의 기록 비교·판정",
+                    },
+                  ].map(({ icon: Icon, title, description }, i) => (
+                    <div key={title}>
+                      <span className="process-icon">
+                        <Icon size={19} strokeWidth={1.5} />
+                      </span>
+                      <section>
+                        <h3>{title}</h3>
+                        <p>{description}</p>
+                      </section>
+                      <span className="process-index">0{i + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </aside>
             </div>
-            {staff &&
-              form(
-                "검수할 계약 조회",
-                async (f) =>
-                  setDetail(
-                    await api<Detail>(
-                      `/api/v2/rentals/${Number(value(f, "id"))}`,
-                      token,
-                    ),
-                  ),
-                field("id", "계약 ID", "number"),
-                "조회",
-              )}
+          </>
+        )}
+        {view === "products" && inventory()}
+        {view === "rentals" && auth && (
+          <>
+            {staff && (
+              <section className="contract-lookup">
+                {form(
+                  "검수할 계약 조회",
+                  async (f) => {
+                    setDetail(
+                      await api<Detail>(
+                        `/api/v2/rentals/${Number(value(f, "id"))}`,
+                        token,
+                      ),
+                    );
+                    setView("detail");
+                  },
+                  <>
+                    {field("id", "계약 ID", "number")}
+                    <p className="hint">검수할 계약 번호를 입력하세요.</p>
+                  </>,
+                  "계약 조회",
+                )}
+              </section>
+            )}
+            {history()}
+          </>
+        )}
+        {view === "account" && !auth && (
+          <section className="account-layout">
+            <div className="account-copy">
+              <span className="account-mark">
+                <Route size={35} strokeWidth={1.3} />
+              </span>
+              <h2>
+                대여의 시작부터
+                <br />
+                마지막 검수까지.
+              </h2>
+              <p>
+                상품별 계약과 상태 기록을
+                <br />
+                한곳에서 관리하세요.
+              </p>
+              <div className="account-rule" />
+              <div className="account-feature">
+                <ShieldCheck size={18} />
+                <span>내 계약에 연결된 기록과 사진</span>
+              </div>
+              <div className="account-feature">
+                <ClipboardCheck size={18} />
+                <span>차수별 상태와 검수 이력</span>
+              </div>
+            </div>
+            <div className="account-card">
+              <div className="account-tabs" role="group" aria-label="계정 작업">
+                <button
+                  aria-pressed={accountTab === "login"}
+                  onClick={() => setAccountTab("login")}
+                >
+                  로그인
+                </button>
+                <button
+                  aria-pressed={accountTab === "register"}
+                  onClick={() => setAccountTab("register")}
+                >
+                  회원가입
+                </button>
+              </div>
+              {accountTab === "login"
+                ? form(
+                    "로그인",
+                    async (f) =>
+                      setAuth(
+                        await api<Auth>(
+                          "/api/v1/auth/login",
+                          undefined,
+                          "POST",
+                          {
+                            loginId: value(f, "loginId"),
+                            password: value(f, "password"),
+                          },
+                        ),
+                      ),
+                    <>
+                      {field("loginId", "아이디")}
+                      {field("password", "비밀번호", "password")}
+                    </>,
+                    "로그인",
+                  )
+                : form(
+                    "새 회원",
+                    async (f) =>
+                      setAuth(
+                        await api<Auth>(
+                          "/api/v1/auth/register",
+                          undefined,
+                          "POST",
+                          {
+                            loginId: value(f, "loginId"),
+                            name: value(f, "name"),
+                            email: value(f, "email"),
+                            password: value(f, "password"),
+                          },
+                        ),
+                      ),
+                    <>
+                      {field("loginId", "아이디 (영문·숫자·._- 3~50자)")}
+                      {field("name", "이름")}
+                      {field("email", "이메일", "email")}
+                      {field("password", "비밀번호 (10~72자)", "password")}
+                    </>,
+                    "계정 만들기",
+                  )}
+              <p className="account-footnote">
+                상품은 로그인 없이 살펴볼 수 있습니다.
+              </p>
+            </div>
           </section>
         )}
-        {auth && r && detail && (
+        {view === "detail" && auth && r && detail && (
           <section className="detail">
+            <button
+              className="text-button back-link"
+              onClick={() => navigate("rentals")}
+            >
+              <ArrowLeft size={16} />
+              대여 이력으로
+            </button>
             <header>
               <div>
                 <p className="eyebrow">CONTRACT #{r.id}</p>
@@ -622,6 +977,22 @@ export default function App() {
               </div>
               <span className="badge">{label(r.contractStatusCd)}</span>
             </header>
+            <div className="rental-progress" aria-label="대여 진행 단계">
+              {[
+                "신청 접수",
+                "인수 기록",
+                "이용 시작",
+                "반납 완료",
+                "최종 검수",
+              ].map((step, index) => (
+                <div key={step} className={progress >= index ? "is-done" : ""}>
+                  <span>
+                    {progress >= index ? <Check size={14} /> : index + 1}
+                  </span>
+                  <strong>{step}</strong>
+                </div>
+              ))}
+            </div>
             {r.contractStatusCd === "REQUESTED" && (
               <div className="actions">
                 {form(
@@ -680,8 +1051,18 @@ export default function App() {
                 "기록 만들기",
               )}
             <div className="condition-grid">
-              {detail.conditions.map(condition)}
+              {currentConditions.map(condition)}
             </div>
+            {otherConditions.length > 0 && (
+              <details className="revision-history">
+                <summary>
+                  다른 차수 보기 <span>{otherConditions.length}개 기록</span>
+                </summary>
+                <div className="condition-grid">
+                  {otherConditions.map(condition)}
+                </div>
+              </details>
+            )}
             {staff &&
               r.contractStatusCd === "RETURNED" &&
               !inspection &&
@@ -828,63 +1209,84 @@ export default function App() {
             )}
           </section>
         )}
-        {auth?.role === "ADMIN" && (
-          <section>
-            <h2>사업자·개별 상품 등록</h2>
-            <div className="admin-grid">
-              {form(
-                "사업자 등록",
-                (f) =>
-                  mutate("/api/v2/businesses", {
-                    businessNo: value(f, "no"),
-                    businessName: value(f, "name"),
-                    contactEmail: value(f, "email") || null,
-                  }),
-                <>
-                  {field("no", "사업자등록번호 (숫자 10자리)")}
-                  {field("name", "사업자명")}
-                  {field("email", "담당 이메일", "email", false)}
-                </>,
-              )}
-              {form(
-                "개별 상품 등록",
-                (f) =>
-                  mutate("/api/v2/items", {
-                    businessId: Number(value(f, "business")),
-                    assetCode: value(f, "asset"),
-                    itemName: value(f, "name"),
-                    categoryCd: value(f, "category"),
-                    description: value(f, "description"),
-                  }),
-                <>
-                  <label>
-                    사업자
-                    <select name="business" required>
-                      <option value="">선택</option>
-                      {businesses.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.businessName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {field("asset", "자산관리번호")}
-                  {field("name", "상품명")}
-                  {select("category", "분류", "CATEGORY")}
-                  {note("description", "설명")}
-                </>,
-              )}
-            </div>
-          </section>
+
+        {view === "admin" && auth?.role === "ADMIN" && (
+          <div className="admin-tabs" role="group" aria-label="운영 관리 작업">
+            <button
+              aria-pressed={adminTab === "catalog"}
+              onClick={() => setAdminTab("catalog")}
+            >
+              사업자 · 상품
+            </button>
+            <button
+              aria-pressed={adminTab === "migration"}
+              onClick={() => setAdminTab("migration")}
+            >
+              기존 이력 이전
+            </button>
+          </div>
         )}
-        {auth?.role === "ADMIN" && (
-          <LegacyImportPanel
-            token={auth.accessToken}
-            onImported={() => reload(r?.id)}
-          />
-        )}
+        {view === "admin" &&
+          adminTab === "catalog" &&
+          auth?.role === "ADMIN" && (
+            <section className="management-panel">
+              <h2>사업자·개별 상품 등록</h2>
+              <div className="admin-grid">
+                {form(
+                  "사업자 등록",
+                  (f) =>
+                    mutate("/api/v2/businesses", {
+                      businessNo: value(f, "no"),
+                      businessName: value(f, "name"),
+                      contactEmail: value(f, "email") || null,
+                    }),
+                  <>
+                    {field("no", "사업자등록번호 (숫자 10자리)")}
+                    {field("name", "사업자명")}
+                    {field("email", "담당 이메일", "email", false)}
+                  </>,
+                )}
+                {form(
+                  "개별 상품 등록",
+                  (f) =>
+                    mutate("/api/v2/items", {
+                      businessId: Number(value(f, "business")),
+                      assetCode: value(f, "asset"),
+                      itemName: value(f, "name"),
+                      categoryCd: value(f, "category"),
+                      description: value(f, "description"),
+                    }),
+                  <>
+                    <label>
+                      사업자
+                      <select name="business" required>
+                        <option value="">선택</option>
+                        {businesses.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.businessName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {field("asset", "자산관리번호")}
+                    {field("name", "상품명")}
+                    {select("category", "분류", "CATEGORY")}
+                    {note("description", "설명")}
+                  </>,
+                )}
+              </div>
+            </section>
+          )}
+
+        {view === "admin" &&
+          adminTab === "migration" &&
+          auth?.role === "ADMIN" && (
+            <LegacyImportPanel
+              token={auth.accessToken}
+              onImported={() => reload(r?.id)}
+            />
+          )}
       </main>
-      <footer>RentalTrack</footer>
-    </>
+    </WorkspaceShell>
   );
 }
