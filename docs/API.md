@@ -104,7 +104,17 @@ EXISTING에는 선택한 인수 기록의 손상 참조 필수. NEW/HOLD는 inta
 
 사진·실행·순번 조합 중복은 409. 후보 저장은 손상 관찰이나 판정 확정이 아님. 추론 실행 API는 제공하지 않음.
 
-## 오류
+## 관리자 기존 이력 이전
+
+ADMIN 전용 `/api/v2/admin/legacy-import`:
+
+- GET `/source`: 원본 회원·상품·검수·위치 목록과 사업자·담당자 선택지. 비밀번호 해시는 응답하지 않음.
+- POST `/preview`: 매핑 JSON을 받아 ready·planToken·pendingCounts·alreadyMappedCounts·issues·warnings 반환.
+- POST `/apply`: `{manifest,planToken}`. 같은 계획 재시도는 기존 실행 결과 반환. 원본·대상·사진·매핑 변경 시 409.
+
+입력과 상태 변환은 [이전 문서](MIGRATION.md) 참조. 이전된 계약·상태·사진·관찰·검수의 상세 응답에는 legacySource 메타데이터가 추가됨.
+
+## 오류 응답
 
 - 400: 잘못된 코드·입력·영역·파일
 - 401: 인증 없음·만료/구버전 토큰·잘못된 로그인

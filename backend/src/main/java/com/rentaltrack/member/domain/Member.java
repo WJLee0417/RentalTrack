@@ -39,7 +39,7 @@ public class Member {
   @Column(
     name = "password_hash",
     table = "member_credential",
-    nullable = false,
+    nullable = true,
     length = 100
   )
   private String passwordHash;

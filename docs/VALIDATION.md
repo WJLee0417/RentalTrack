@@ -12,8 +12,9 @@ frontend/web: npm ci && npm run build
 ## 통합 테스트
 
 - WorkflowIntegrationTest: 계약·상태·사진·손상·검수·인증·권한·동시성 20개.
-- MigrationUpgradeTest: V10 자료가 있는 DB에 V11 적용 1개.
-- 총 21개, 실제 MySQL에서 실행. H2 대체 DB 사용하지 않음.
+- MigrationUpgradeTest: V10 자료가 있는 DB에 V11·V12 적용 1개.
+- LegacyImportIntegrationTest: 기존 이력 복사·회원 로그인·매핑·사전 점검·트랜잭션·8개 상태 변환 등 19개.
+- 총 40개, 실제 MySQL에서 실행. H2 대체 DB 사용하지 않음.
 - Hibernate validate 및 Flyway 신규 적용·업그레이드 포함.
 
 | 대상 | 검증 내용 |
@@ -42,3 +43,10 @@ frontend/web: npm ci && npm run build
 - 관리자 로그인 → 계약 조회 → 인수 2차·반납 1차를 검수 기준으로 선택 → 검수 시작·완료 → 신규 손상 없음 확인.
 - 1440×1000, 390×844에서 화면 확인. 브라우저 실행 오류와 가로 넘침 없음.
 - 브라우저에서 사용한 회원·상품·사진은 검증용 fixture. 실제 운영 실적으로 기재하지 않음.
+
+기존 이력 이전 화면도 별도 빈 DB와 UTF-8 fixture로 확인했다.
+
+- 관리자 로그인 → 매핑 누락 표시·이전 차단 → 소유 사업자·분류·실제 담당자·비표준 손상 위치 지정 → 사전 점검 → 이전.
+- 같은 요청 재전송은 ALREADY_IMPORTED. 기존 회원이 기존 비밀번호와 새 로그인 ID로 로그인해 계약·인수/반납 기록·사진·기존/신규 손상·완료된 검수를 조회.
+- 1440×1000 / 390×844 화면 확인. 브라우저 오류·가로 넘침 없음. 고객에게 관리자 이전 패널이 노출되지 않고 확정 기록 수정 버튼도 없음.
+- 실패 주입 테스트는 테스트용 DB에서만 트리거를 생성하며, compose.test.yaml·CI의 해당 DB만 log_bin_trust_function_creators를 설정. 운영 설정에는 추가하지 않음.

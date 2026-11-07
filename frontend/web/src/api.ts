@@ -16,12 +16,14 @@ export type Item = {
 export type Business = { id: number; businessName: string };
 export type Code = { codeGroupId: string; codeValue: string };
 export type Rental = {
+  legacySource?: { legacyId: number; originalStatus: string } | null;
   id: number;
   contractNo: string;
   itemId: number;
   contractStatusCd: string;
 };
 export type Photo = {
+  legacySource?: { legacyId: number; originalViewpoint: string | null } | null;
   id: number;
   originalFileName: string;
   contentUrl: string;
@@ -36,6 +38,11 @@ export type Photo = {
   }[];
 };
 export type Damage = {
+  legacySource?: {
+    legacyId: number;
+    originalType: string;
+    originalLocation: string;
+  } | null;
   id: number;
   damageLocationCd: string;
   damageTypeCd: string;
@@ -53,6 +60,11 @@ export type Condition = {
   damages: Damage[];
 };
 export type Inspection = {
+  legacySource?: {
+    legacyId: number;
+    originalResult: string;
+    originalInspectedAt: string;
+  } | null;
   id: number;
   intakeConditionId: number;
   returnConditionId: number;
@@ -63,7 +75,7 @@ export type Inspection = {
     returnDamageId: number;
     intakeDamageId: number | null;
     assessmentResultCd: string;
-    assessmentReason: string;
+    assessmentReason: string | null;
   }[];
 };
 export type Detail = {

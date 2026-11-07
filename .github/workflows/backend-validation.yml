@@ -59,7 +59,7 @@ jobs:
 
       - name: Run backend validation
         run: |
-          docker exec ${{ job.services.mysql.id }} mysql -uroot -proot -e "CREATE DATABASE rentaltrack_upgrade_test; GRANT ALL ON rentaltrack_upgrade_test.* TO 'rentaltrack'@'%';"
+          docker exec ${{ job.services.mysql.id }} mysql -uroot -proot -e "SET GLOBAL log_bin_trust_function_creators=1; CREATE DATABASE rentaltrack_upgrade_test; GRANT ALL ON rentaltrack_upgrade_test.* TO 'rentaltrack'@'%';"
           chmod +x gradlew
           ./gradlew clean test --no-daemon --stacktrace
 

@@ -4,6 +4,15 @@
   background: #f5f6f2;
   font-synthesis: none;
 }
+.mapping-json {
+  min-height: 360px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  white-space: pre;
+}
+.legacy-import details {
+  overflow-wrap: anywhere;
+}
 * {
   box-sizing: border-box;
 }
