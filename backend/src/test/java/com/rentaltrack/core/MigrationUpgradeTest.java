@@ -10,7 +10,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class MigrationUpgradeTest {
 
   @Test
-  void v10DataAndForeignKeysSurviveV11AlongsideTheNewEmptyModel() {
+  void v10DataAndForeignKeysSurviveV12AlongsideTheNewEmptyModel() {
     String main = System.getenv().getOrDefault(
       "SPRING_DATASOURCE_URL",
       "jdbc:mysql://localhost:3306/rentaltrack_test?useSSL=false&allowPublicKeyRetrieval=true"
@@ -96,6 +96,6 @@ class MigrationUpgradeTest {
         "SELECT COUNT(*) FROM flyway_schema_history WHERE success=1",
         Integer.class
       )
-    ).isEqualTo(11);
+    ).isEqualTo(12);
   }
 }

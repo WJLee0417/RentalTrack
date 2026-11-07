@@ -1,6 +1,8 @@
 services:
   mysql:
     image: mysql:8.4
+    # Only the disposable test DB uses a trigger to inject a mid-import failure.
+    command: ["--log-bin-trust-function-creators=1"]
     environment:
       MYSQL_ROOT_PASSWORD: rentaltrack-test-root
       MYSQL_DATABASE: rentaltrack_test

@@ -44,6 +44,8 @@ flowchart LR
 
 ## 원본 컬럼
 
+V12의 운영용 확장: legacy_import_mutex(이전 직렬화), legacy_import_run(계획·실행 결과·실행자), legacy_entity_map(원본 ID→새 ID·원본 해시). 원본 ERD의 엔터티로 간주하지 않음. 인증 테이블의 password_hash는 기존 비밀번호가 없는 회원을 위해 NULL 허용.
+
 ### MEMBER
 
 | 컬럼 | 타입 |

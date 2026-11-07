@@ -805,7 +805,7 @@ public class WorkflowService {
   }
 
   private Map<String, Object> rentalView(RentalAgreement r) {
-    return map(
+    Map<String, Object> view = map(
       "id",
       r.id,
       "contractNo",
@@ -825,10 +825,12 @@ public class WorkflowService {
       "actualReturnAt",
       r.actualReturnAt
     );
+    view.put("legacySource", legacyView("rental_contract", r.id));
+    return view;
   }
 
   private Map<String, Object> conditionView(ConditionSnapshot c) {
-    return map(
+    Map<String, Object> view = map(
       "id",
       c.id,
       "contractId",
@@ -856,10 +858,12 @@ public class WorkflowService {
         .map(this::damageView)
         .toList()
     );
+    view.put("legacySource", legacyView("condition_record", c.id));
+    return view;
   }
 
   private Map<String, Object> photoView(ConditionPhoto p) {
-    return map(
+    Map<String, Object> view = map(
       "id",
       p.id,
       "conditionId",
@@ -887,10 +891,12 @@ public class WorkflowService {
         .map(this::analysisView)
         .toList()
     );
+    view.put("legacySource", legacyView("condition_photo", p.id));
+    return view;
   }
 
   private Map<String, Object> damageView(DamageObservation d) {
-    return map(
+    Map<String, Object> view = map(
       "id",
       d.id,
       "conditionId",
@@ -910,6 +916,8 @@ public class WorkflowService {
         .map(this::evidenceView)
         .toList()
     );
+    view.put("legacySource", legacyView("damage_observation", d.id));
+    return view;
   }
 
   private Map<String, Object> evidenceView(DamagePhoto e) {
@@ -947,7 +955,7 @@ public class WorkflowService {
   }
 
   private Map<String, Object> inspectionView(ReturnInspection i) {
-    return map(
+    Map<String, Object> view = map(
       "id",
       i.id,
       "contractId",
@@ -973,6 +981,8 @@ public class WorkflowService {
         .map(this::assessmentView)
         .toList()
     );
+    view.put("legacySource", legacyView("return_inspection", i.id));
+    return view;
   }
 
   private Map<String, Object> assessmentView(DamageAssessment a) {
@@ -999,6 +1009,49 @@ public class WorkflowService {
     return x == null
       ? null
       : map("x", x, "y", y, "width", width, "height", height);
+  }
+
+  private Map<String, Object> legacyView(String table, Long id) {
+    String source;
+    String columns;
+    switch (table) {
+      case "rental_contract" -> {
+        source = "legacy_rental_contract";
+        columns =
+          "s.id AS legacyId,s.contract_code AS originalContractNo,s.status AS originalStatus,s.approved_at AS approvedAt,s.picked_up_at AS pickedUpAt,s.completed_at AS completedAt";
+      }
+      case "condition_record" -> {
+        source = "legacy_condition_record";
+        columns =
+          "s.id AS legacyId,s.record_type AS originalStage,s.recorded_by_member_id AS recordedByLegacyMemberId";
+      }
+      case "condition_photo" -> {
+        source = "condition_image";
+        columns =
+          "s.id AS legacyId,s.viewpoint AS originalViewpoint,s.original_filename AS originalFilename";
+      }
+      case "damage_observation" -> {
+        source = "damage_record";
+        columns =
+          "s.id AS legacyId,s.damage_type AS originalType,s.damage_location AS originalLocation,s.comparison_result AS originalComparison";
+      }
+      default -> {
+        source = "legacy_return_inspection";
+        columns =
+          "s.id AS legacyId,s.result AS originalResult,s.inspected_at AS originalInspectedAt";
+      }
+    }
+    var found = jdbc.queryForList(
+      "SELECT " +
+        columns +
+        " FROM legacy_entity_map m JOIN " +
+        source +
+        " s ON s.id=m.source_id WHERE m.source_table=? AND m.target_table=? AND m.target_id=?",
+      source,
+      table,
+      id
+    );
+    return found.isEmpty() ? null : found.getFirst();
   }
 
   private static Map<String, Object> map(Object... values) {

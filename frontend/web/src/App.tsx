@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import LegacyImportPanel from "./LegacyImportPanel";
 import {
   api,
   type Auth,
@@ -15,6 +16,11 @@ const value = (f: HTMLFormElement, k: string) =>
   String(new FormData(f).get(k) || "").trim();
 const dt = (s: string) => (s.length === 16 ? s + ":00" : s);
 const names: Record<string, string> = {
+  APPROVED: "승인",
+  PICKED_UP: "인수 완료",
+  IN_USE: "이용 중",
+  REJECTED: "대여 거절",
+  INSPECTING: "검수 중",
   CUSTOMER: "일반회원",
   INSPECTOR: "검수담당자",
   ADMIN: "관리자",
@@ -97,6 +103,10 @@ function Preview({ p, token }: { p: Photo; token: string }) {
       <figcaption>
         #{p.id} · {label(p.captureAngleCd)} · {p.originalFileName}
         <small title={p.fileHash}>SHA-256 {p.fileHash.slice(0, 12)}…</small>
+        {p.legacySource?.originalViewpoint &&
+          p.legacySource.originalViewpoint !== p.captureAngleCd && (
+            <small>기존 촬영 방향: {p.legacySource.originalViewpoint}</small>
+          )}
       </figcaption>
       {p.analyses.map((a) => (
         <small key={a.id}>
@@ -310,6 +320,13 @@ export default function App() {
               {label(d.damageTypeCd)} / {label(d.severityCd)}
             </strong>
             <p>{d.damageDescription}</p>
+            {d.legacySource && (
+              <small>
+                기존 관찰 #{d.legacySource.legacyId} ·{" "}
+                {d.legacySource.originalType} /{" "}
+                {d.legacySource.originalLocation}
+              </small>
+            )}
             <small>
               증거 사진:{" "}
               {d.evidence.map((e) => `#${e.photoId}`).join(", ") || "연결 없음"}
@@ -596,6 +613,12 @@ export default function App() {
                     "대여 상품"}
                 </h2>
                 <small>{r.contractNo}</small>
+                {r.legacySource && (
+                  <small>
+                    이전 이력 · 원본 #{r.legacySource.legacyId} ·{" "}
+                    {label(r.legacySource.originalStatus)}
+                  </small>
+                )}
               </div>
               <span className="badge">{label(r.contractStatusCd)}</span>
             </header>
@@ -699,6 +722,13 @@ export default function App() {
               )}
             {inspection && (
               <article className="inspection">
+                {inspection.legacySource && (
+                  <small>
+                    기존 검수 #{inspection.legacySource.legacyId} ·{" "}
+                    {inspection.legacySource.originalResult} ·{" "}
+                    {inspection.legacySource.originalInspectedAt}
+                  </small>
+                )}
                 <h3>
                   검수 #{inspection.id} · {label(inspection.inspectionStatusCd)}
                 </h3>
@@ -846,6 +876,12 @@ export default function App() {
               )}
             </div>
           </section>
+        )}
+        {auth?.role === "ADMIN" && (
+          <LegacyImportPanel
+            token={auth.accessToken}
+            onImported={() => reload(r?.id)}
+          />
         )}
       </main>
       <footer>RentalTrack</footer>
