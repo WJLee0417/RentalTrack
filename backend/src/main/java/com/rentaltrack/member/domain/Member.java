@@ -1,97 +1,96 @@
 package com.rentaltrack.member.domain;
 
-import com.rentaltrack.global.domain.BaseTimeEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "member_account")
-public class Member extends BaseTimeEntity {
+@Table(name = "`member`")
+@SecondaryTable(
+  name = "member_credential",
+  pkJoinColumns = @PrimaryKeyJoinColumn(name = "member_id")
+)
+public class Member {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column(name = "member_id", columnDefinition = "BIGINT UNSIGNED")
+  private Long id;
 
-    @Column(name = "email", nullable = false, unique = true, length = 255)
-    private String email;
+  @Column(name = "login_id", nullable = false, length = 50)
+  private String loginId;
 
-    @Column(name = "password_hash", length = 100)
-    private String passwordHash;
+  @Column(name = "member_name", nullable = false, length = 100)
+  private String name;
 
-    @Column(name = "name", nullable = false, length = 100)
-    private String name;
+  @Column(nullable = false, length = 254)
+  private String email;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private MemberStatus status;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "member_role_cd", nullable = false, length = 20)
+  private MemberRole role = MemberRole.CUSTOMER;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 20)
-    private MemberRole role;
+  @Column(
+    name = "created_at",
+    nullable = false,
+    columnDefinition = "DATETIME(3)"
+  )
+  private LocalDateTime createdAt = LocalDateTime.now();
 
-    protected Member() {
-    }
+  @Column(
+    name = "password_hash",
+    table = "member_credential",
+    nullable = false,
+    length = 100
+  )
+  private String passwordHash;
 
-    public Member(String email, String name) {
-        this(email, name, null, MemberRole.USER);
-    }
+  @Enumerated(EnumType.STRING)
+  @Column(table = "member_credential", nullable = false, length = 20)
+  private MemberStatus status = MemberStatus.ACTIVE;
 
-    public Member(String email, String name, MemberRole role) {
-        this(email, name, null, role);
-    }
+  protected Member() {}
 
-    public Member(String email, String name, String passwordHash) {
-        this(email, name, passwordHash, MemberRole.USER);
-    }
+  public Member(
+    String loginId,
+    String email,
+    String name,
+    String passwordHash
+  ) {
+    this.loginId = loginId;
+    this.email = email;
+    this.name = name;
+    this.passwordHash = passwordHash;
+  }
 
-    public Member(
-            String email,
-            String name,
-            String passwordHash,
-            MemberRole role
-    ) {
-        this.email = email;
-        this.name = name;
-        this.passwordHash = passwordHash;
-        this.status = MemberStatus.ACTIVE;
-        this.role = role;
-    }
+  public Long getId() {
+    return id;
+  }
 
-    public Long getId() {
-        return id;
-    }
+  public String getLoginId() {
+    return loginId;
+  }
 
-    public String getEmail() {
-        return email;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public String getPasswordHash() {
-        return passwordHash;
-    }
+  public String getEmail() {
+    return email;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public MemberRole getRole() {
+    return role;
+  }
 
-    public MemberStatus getStatus() {
-        return status;
-    }
+  public String getPasswordHash() {
+    return passwordHash;
+  }
 
-    public MemberRole getRole() {
-        return role;
-    }
+  public MemberStatus getStatus() {
+    return status;
+  }
 
-    public void suspend() {
-        this.status = MemberStatus.SUSPENDED;
-    }
-
-    public void withdraw() {
-        this.status = MemberStatus.WITHDRAWN;
-    }
+  public void changeRole(MemberRole role) {
+    this.role = role;
+  }
 }

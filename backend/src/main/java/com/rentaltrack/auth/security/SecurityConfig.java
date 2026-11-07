@@ -13,43 +13,48 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            RestAuthenticationEntryPoint authenticationEntryPoint,
-            RestAccessDeniedHandler accessDeniedHandler
-    ) throws Exception {
-        return http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler)
-                )
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register",
-                                "/actuator/health",
-                                "/actuator/info"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/locations").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll()
-                        .requestMatchers("/api/v1/operator/**").hasRole("OPERATOR")
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
-                .build();
-    }
+  @Bean
+  public SecurityFilterChain securityFilterChain(
+    HttpSecurity http,
+    JwtAuthenticationFilter jwtAuthenticationFilter,
+    RestAuthenticationEntryPoint authenticationEntryPoint,
+    RestAccessDeniedHandler accessDeniedHandler
+  ) throws Exception {
+    return http
+      .csrf(csrf -> csrf.disable())
+      .sessionManagement(session ->
+        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+      )
+      .exceptionHandling(exceptions ->
+        exceptions
+          .authenticationEntryPoint(authenticationEntryPoint)
+          .accessDeniedHandler(accessDeniedHandler)
+      )
+      .authorizeHttpRequests(authorize ->
+        authorize
+          .requestMatchers(
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/actuator/health",
+            "/actuator/info"
+          )
+          .permitAll()
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+          .requestMatchers(HttpMethod.GET, "/api/v2/catalog/**")
+          .permitAll()
+
+          .anyRequest()
+          .authenticated()
+      )
+      .addFilterBefore(
+        jwtAuthenticationFilter,
+        UsernamePasswordAuthenticationFilter.class
+      )
+      .build();
+  }
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 }

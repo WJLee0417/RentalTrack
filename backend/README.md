@@ -1,35 +1,19 @@
 # RentalTrack Backend
 
-Spring Boot 기반 RentalTrack API 서버입니다.
+Java 21 / MySQL 8.4. 저장소 루트 [README](../README.md)의 DB 준비 절차를 따른다.
 
-## Stack
-
-`Java 21` `Spring Boot` `Spring Data JPA` `Spring Security` `Flyway` `MySQL 8.4`
-
-## Validation
-
-Backend 변경은 GitHub Actions `Backend Validation`에서 MySQL 8.4와 Java 21 환경으로 자동 검증합니다.
-
-```bash
-./gradlew clean test --no-daemon --stacktrace
+```powershell
+.\gradlew.bat test bootJar --no-daemon
+.\gradlew.bat bootRun
 ```
 
-자동 검증 범위에는 다음 항목이 포함됩니다.
+- JPA `ddl-auto=validate`, Flyway V1~V11 순서 적용.
+- `core/`의 WorkflowService가 계약을 먼저 잠그고 상태·기록·검수 변경을 직렬화. 상품 신청은 개별 상품 행을 잠근 뒤 활성 계약 유무 검사.
+- 변경 트랜잭션은 READ_COMMITTED. 계약 잠금 후 조회하는 자료가 다른 트랜잭션 이전의 스냅샷에 머무르지 않도록 설정.
+- 엔터티를 직접 JSON 응답으로 노출하지 않고 조회용 필드를 명시적으로 구성.
+- 파일 저장 후 DB 트랜잭션이 롤백되면 신규 파일 삭제. 차수 복사 시 파일 키는 공유하고 사진·관찰·연결 레코드는 새 식별자로 복사.
+- 인증 비밀번호는 ERD 확장 테이블 `member_credential`에 BCrypt 해시로 저장. JWT issuer는 `rentaltrack-erd-v2`로 구분해 기존 회원 ID 공간의 토큰 재사용 차단.
 
-- Flyway migration / JPA `ddl-auto=validate`
-- API 입력값 검증
-- Rental 상태 전이
-- 동일 상품 동시 대여 요청
-- USER / OPERATOR 접근 정책
-- 이미지 저장소 추상화와 업로드 처리
-- JWT 발급과 인증 서비스
-- 운영자 예측·추천 조회 및 의사결정
+테스트 DB: `rentaltrack_test`, `rentaltrack_upgrade_test`. 후자는 V10 데이터가 있는 상태에서 V11 적용을 검증하는 전용 DB이며 테스트가 초기화한다.
 
-동일한 Backend 검증 흐름을 위한 GitLab CI 설정도 저장소에 함께 제공합니다.
-
-```text
-.gitlab-ci.yml
-└─ backend/ci.yml
-```
-
-GitLab Runner에서의 실행 여부는 GitHub Actions 검증 결과와 별도로 관리합니다.
+[API](../docs/API.md) · [검증](../docs/VALIDATION.md) · [이전 안내](../docs/MIGRATION.md)

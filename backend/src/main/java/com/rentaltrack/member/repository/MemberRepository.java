@@ -1,13 +1,11 @@
 package com.rentaltrack.member.repository;
 
 import com.rentaltrack.member.domain.Member;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
-
 public interface MemberRepository extends JpaRepository<Member, Long> {
-
-    Optional<Member> findByEmailIgnoreCase(String email);
-
-    boolean existsByEmailIgnoreCase(String email);
+  boolean existsByEmailIgnoreCase(String email);
+  boolean existsByLoginIdIgnoreCase(String loginId);
+  Optional<Member> findByLoginIdIgnoreCase(String loginId);
 }

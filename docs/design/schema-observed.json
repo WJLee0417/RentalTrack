@@ -1,0 +1,667 @@
+{
+  "source": "렌탈트랙 (1).damx",
+  "sha256": "00c3385b8f23190f32b1b0affdd75adde5fff1c98f6e285f423a1b6ce5fb5273",
+  "bytes": 1202388,
+  "limitations": [
+    "Text extraction, not a complete model decoder",
+    "Nullability, uniqueness, generated IDs, FK options and relationship cardinality are not decoded",
+    "Korean code labels are readable; stored code values are not confirmed",
+    "Offsets and extraction rules target this supplied model only"
+  ],
+  "tables": {
+    "MEMBER": [
+      {
+        "name": "member_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 1224
+      },
+      {
+        "name": "login_id",
+        "type": "VARCHAR(50)",
+        "offset": 1822
+      },
+      {
+        "name": "member_name",
+        "type": "VARCHAR(100)",
+        "offset": 2402
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(254)",
+        "offset": 2978
+      },
+      {
+        "name": "member_role_cd",
+        "type": "VARCHAR(20)",
+        "offset": 3594
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 4298
+      }
+    ],
+    "BUSINESS": [
+      {
+        "name": "business_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 8428
+      },
+      {
+        "name": "business_no",
+        "type": "VARCHAR(10)",
+        "offset": 9052
+      },
+      {
+        "name": "business_name",
+        "type": "VARCHAR(200)",
+        "offset": 9652
+      },
+      {
+        "name": "business_status_cd",
+        "type": "VARCHAR(20)",
+        "offset": 10298
+      },
+      {
+        "name": "contact_email",
+        "type": "VARCHAR(254)",
+        "offset": 11002
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 11638
+      }
+    ],
+    "RENTAL_ITEM": [
+      {
+        "name": "item_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 88868
+      },
+      {
+        "name": "business_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 89490
+      },
+      {
+        "name": "asset_code",
+        "type": "VARCHAR(40)",
+        "offset": 90112
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "offset": 90702
+      },
+      {
+        "name": "category_cd",
+        "type": "VARCHAR(30)",
+        "offset": 91312
+      },
+      {
+        "name": "item_status_cd",
+        "type": "VARCHAR(20)",
+        "offset": 92022
+      },
+      {
+        "name": "description",
+        "type": "VARCHAR(1000)",
+        "offset": 92704
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 93344
+      }
+    ],
+    "RENTAL_CONTRACT": [
+      {
+        "name": "contract_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 38014
+      },
+      {
+        "name": "contract_no",
+        "type": "VARCHAR(50)",
+        "offset": 38634
+      },
+      {
+        "name": "member_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 39250
+      },
+      {
+        "name": "item_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 39870
+      },
+      {
+        "name": "requested_at",
+        "type": "DATETIME(3)",
+        "offset": 40522
+      },
+      {
+        "name": "rental_start_at",
+        "type": "DATETIME(3)",
+        "offset": 41152
+      },
+      {
+        "name": "rental_end_at",
+        "type": "DATETIME(3)",
+        "offset": 41796
+      },
+      {
+        "name": "actual_return_at",
+        "type": "DATETIME(3)",
+        "offset": 42430
+      },
+      {
+        "name": "contract_status_cd",
+        "type": "VARCHAR(20)",
+        "offset": 43094
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 43824
+      }
+    ],
+    "CONDITION_RECORD": [
+      {
+        "name": "condition_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 56934
+      },
+      {
+        "name": "contract_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 57582
+      },
+      {
+        "name": "record_stage_cd",
+        "type": "VARCHAR(10)",
+        "offset": 58224
+      },
+      {
+        "name": "record_revision_no",
+        "type": "INT",
+        "offset": 58930
+      },
+      {
+        "name": "recorded_at",
+        "type": "DATETIME(3)",
+        "offset": 59580
+      },
+      {
+        "name": "record_note",
+        "type": "VARCHAR(1000)",
+        "offset": 60194
+      },
+      {
+        "name": "confirmed_yn",
+        "type": "CHAR(1)",
+        "offset": 60806
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 61446
+      }
+    ],
+    "CONDITION_PHOTO": [
+      {
+        "name": "photo_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 127878
+      },
+      {
+        "name": "condition_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 128518
+      },
+      {
+        "name": "photo_seq",
+        "type": "INT",
+        "offset": 129138
+      },
+      {
+        "name": "storage_key",
+        "type": "VARCHAR(500)",
+        "offset": 129738
+      },
+      {
+        "name": "original_file_name",
+        "type": "VARCHAR(255)",
+        "offset": 130370
+      },
+      {
+        "name": "mime_type",
+        "type": "VARCHAR(100)",
+        "offset": 130992
+      },
+      {
+        "name": "file_size",
+        "type": "BIGINT UNSIGNED",
+        "offset": 131606
+      },
+      {
+        "name": "file_hash",
+        "type": "CHAR(64)",
+        "offset": 132218
+      },
+      {
+        "name": "capture_angle_cd",
+        "type": "VARCHAR(30)",
+        "offset": 132838
+      },
+      {
+        "name": "captured_at",
+        "type": "DATETIME(3)",
+        "offset": 133528
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 134172
+      }
+    ],
+    "DAMAGE_OBSERVATION": [
+      {
+        "name": "damage_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 107036
+      },
+      {
+        "name": "condition_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 107684
+      },
+      {
+        "name": "damage_location_cd",
+        "type": "VARCHAR(40)",
+        "offset": 108338
+      },
+      {
+        "name": "damage_type_cd",
+        "type": "VARCHAR(40)",
+        "offset": 109056
+      },
+      {
+        "name": "damage_description",
+        "type": "VARCHAR(1000)",
+        "offset": 109766
+      },
+      {
+        "name": "severity_cd",
+        "type": "VARCHAR(20)",
+        "offset": 110410
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 111132
+      }
+    ],
+    "DAMAGE_PHOTO": [
+      {
+        "name": "damage_photo_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 30658
+      },
+      {
+        "name": "damage_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 31288
+      },
+      {
+        "name": "photo_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 31904
+      },
+      {
+        "name": "bbox_x_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 32544
+      },
+      {
+        "name": "bbox_y_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 33182
+      },
+      {
+        "name": "bbox_width_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 33822
+      },
+      {
+        "name": "bbox_height_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 34472
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 35124
+      }
+    ],
+    "IMAGE_ANALYSIS_RESULT": [
+      {
+        "name": "analysis_result_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 15774
+      },
+      {
+        "name": "photo_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 16426
+      },
+      {
+        "name": "analysis_run_id",
+        "type": "CHAR(36)",
+        "offset": 17066
+      },
+      {
+        "name": "detection_seq",
+        "type": "INT",
+        "offset": 17694
+      },
+      {
+        "name": "model_name",
+        "type": "VARCHAR(100)",
+        "offset": 18312
+      },
+      {
+        "name": "model_version",
+        "type": "VARCHAR(50)",
+        "offset": 18948
+      },
+      {
+        "name": "predicted_damage_type_cd",
+        "type": "VARCHAR(40)",
+        "offset": 19622
+      },
+      {
+        "name": "confidence_score",
+        "type": "DECIMAL(5,4)",
+        "offset": 20356
+      },
+      {
+        "name": "bbox_x_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 21020
+      },
+      {
+        "name": "bbox_y_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 21676
+      },
+      {
+        "name": "bbox_width_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 22334
+      },
+      {
+        "name": "bbox_height_ratio",
+        "type": "DECIMAL(5,4)",
+        "offset": 23002
+      },
+      {
+        "name": "analyzed_at",
+        "type": "DATETIME(3)",
+        "offset": 23636
+      }
+    ],
+    "RETURN_INSPECTION": [
+      {
+        "name": "inspection_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 65758
+      },
+      {
+        "name": "contract_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 66410
+      },
+      {
+        "name": "intake_condition_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 67086
+      },
+      {
+        "name": "return_condition_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 67778
+      },
+      {
+        "name": "inspector_member_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 68286,
+        "origin": "MEMBER.member_id",
+        "typeOffset": 68340
+      },
+      {
+        "name": "inspection_status_cd",
+        "type": "VARCHAR(20)",
+        "offset": 69094
+      },
+      {
+        "name": "overall_result_cd",
+        "type": "VARCHAR(20)",
+        "offset": 69820
+      },
+      {
+        "name": "inspected_at",
+        "type": "DATETIME(3)",
+        "offset": 70530
+      },
+      {
+        "name": "inspection_note",
+        "type": "VARCHAR(1000)",
+        "offset": 71156
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 71816
+      }
+    ],
+    "DAMAGE_ASSESSMENT": [
+      {
+        "name": "assessment_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 80258
+      },
+      {
+        "name": "inspection_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 80914
+      },
+      {
+        "name": "return_damage_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 81576
+      },
+      {
+        "name": "intake_damage_id",
+        "type": "BIGINT UNSIGNED",
+        "offset": 82244
+      },
+      {
+        "name": "assessment_result_cd",
+        "type": "VARCHAR(20)",
+        "offset": 82908
+      },
+      {
+        "name": "assessment_reason",
+        "type": "VARCHAR(1000)",
+        "offset": 83626
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 84290
+      }
+    ],
+    "COMMON_CODE_GROUP": [
+      {
+        "name": "code_group_id",
+        "type": "VARCHAR(40)",
+        "offset": 101954
+      },
+      {
+        "name": "code_group_name",
+        "type": "VARCHAR(100)",
+        "offset": 102586
+      },
+      {
+        "name": "code_group_description",
+        "type": "VARCHAR(500)",
+        "offset": 103244
+      },
+      {
+        "name": "use_yn",
+        "type": "CHAR(1)",
+        "offset": 103866
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 104496
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME(3)",
+        "offset": 105142
+      }
+    ],
+    "COMMON_CODE": [
+      {
+        "name": "code_group_id",
+        "type": "VARCHAR(40)",
+        "offset": 50282
+      },
+      {
+        "name": "code_value",
+        "type": "VARCHAR(40)",
+        "offset": 50878
+      },
+      {
+        "name": "code_name",
+        "type": "VARCHAR(100)",
+        "offset": 51468
+      },
+      {
+        "name": "code_description",
+        "type": "VARCHAR(500)",
+        "offset": 52078
+      },
+      {
+        "name": "display_order",
+        "type": "INT",
+        "offset": 52696
+      },
+      {
+        "name": "use_yn",
+        "type": "CHAR(1)",
+        "offset": 53274
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME(3)",
+        "offset": 53892
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME(3)",
+        "offset": 54526
+      }
+    ]
+  },
+  "relationships": [
+    {
+      "parent": "RENTAL_CONTRACT",
+      "child": "CONDITION_RECORD",
+      "label": "기록한다",
+      "offset": 262503
+    },
+    {
+      "parent": "RENTAL_ITEM",
+      "child": "RENTAL_CONTRACT",
+      "label": "계약대상이 된다",
+      "offset": 263135
+    },
+    {
+      "parent": "CONDITION_PHOTO",
+      "child": "IMAGE_ANALYSIS_RESULT",
+      "label": "분석된다",
+      "offset": 263775
+    },
+    {
+      "parent": "MEMBER",
+      "child": "RENTAL_CONTRACT",
+      "label": "신청한다",
+      "offset": 264407
+    },
+    {
+      "parent": "CONDITION_RECORD",
+      "child": "DAMAGE_OBSERVATION",
+      "label": "기록한다",
+      "offset": 265039
+    },
+    {
+      "parent": "CONDITION_RECORD",
+      "child": "RETURN_INSPECTION",
+      "label": "인수기준이 된다",
+      "offset": 265671
+    },
+    {
+      "parent": "CONDITION_RECORD",
+      "child": "RETURN_INSPECTION",
+      "label": "반납대상이 된다",
+      "offset": 266311
+    },
+    {
+      "parent": "RETURN_INSPECTION",
+      "child": "DAMAGE_ASSESSMENT",
+      "label": "판정한다",
+      "offset": 266951
+    },
+    {
+      "parent": "BUSINESS",
+      "child": "RENTAL_ITEM",
+      "label": "관리한다",
+      "offset": 267583
+    },
+    {
+      "parent": "COMMON_CODE_GROUP",
+      "child": "COMMON_CODE",
+      "label": "분류한다",
+      "offset": 268215
+    },
+    {
+      "parent": "RENTAL_CONTRACT",
+      "child": "RETURN_INSPECTION",
+      "label": "검수받는다",
+      "offset": 268847
+    },
+    {
+      "parent": "DAMAGE_OBSERVATION",
+      "child": "DAMAGE_PHOTO",
+      "label": "증거사진을 지정한다",
+      "offset": 269481
+    },
+    {
+      "parent": "CONDITION_RECORD",
+      "child": "CONDITION_PHOTO",
+      "label": "첨부한다",
+      "offset": 270749
+    },
+    {
+      "parent": "CONDITION_PHOTO",
+      "child": "DAMAGE_PHOTO",
+      "label": "증거로 사용된다",
+      "offset": 271381
+    }
+  ]
+}

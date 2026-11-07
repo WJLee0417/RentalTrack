@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - refactor/rentaltrack-web-skeleton
+      - "codex/**"
     paths:
       - "backend/**"
       - ".github/workflows/backend-validation.yml"
@@ -58,6 +59,7 @@ jobs:
 
       - name: Run backend validation
         run: |
+          docker exec ${{ job.services.mysql.id }} mysql -uroot -proot -e "CREATE DATABASE rentaltrack_upgrade_test; GRANT ALL ON rentaltrack_upgrade_test.* TO 'rentaltrack'@'%';"
           chmod +x gradlew
           ./gradlew clean test --no-daemon --stacktrace
 

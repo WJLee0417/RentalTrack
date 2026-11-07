@@ -1,290 +1,85 @@
 # RentalTrack
 
-RentalTrack은 이동 중 필요한 생활용품을 주변 대여 지점에서 이용할 수 있도록 만든 웹 기반 렌탈 서비스입니다.
+개별 렌탈 상품의 대여·상태 기록·반납 검수 이력을 관리하는 웹 애플리케이션.
 
-대여 전·후 상태와 사진을 대여 건별로 기록해 상품 이력을 남기고, 지점·상품별 이용 데이터를 수요 예측으로 연결해 운영자의 재고 배치 판단까지 지원합니다.
+- 사업자별 개별 상품 등록, 동일 상품의 중복 대여 신청 방지
+- 인수·반납 상태 기록과 사진·손상 관찰·증거 사진 연결
+- 상태 기록 확정, 새 차수 작성, 이전 확정 기록 보존
+- 선택한 인수·반납 기록을 고정한 검수와 손상별 판정
+- 일반회원·검수담당자·관리자 권한, JWT 인증, 사진 조회 권한
+- 사진 해시·파일 메타데이터와 이미지 분석 후보 결과 저장
 
-## Service Flow
+이미지 분석 결과 등록 API는 외부 모델의 결과를 저장한다. 이미지 추론 모델·학습·추론 서버는 이 변경에 포함하지 않는다.
 
-### Rental
+## 구성
 
-```text
-상품/지점 탐색
-→ 대여 신청
-→ 인수
-→ BEFORE 상태/사진 기록
-→ 이용 시작
-→ 반납
-→ AFTER 상태/사진 기록
-→ 손상 비교
-→ 반납 검수
-→ 대여 완료
+| 영역 | 구성 |
+| --- | --- |
+| Backend | Java 21, Spring Boot, Spring Security, JPA, Flyway |
+| Database | MySQL 8.4 |
+| Frontend | React, TypeScript, Vite |
+| 이미지 | 파일 저장소 + DB 메타데이터·SHA-256 |
+
+새 설계는 [제공된 ERD](docs/design/rentaltrack-v2.damx)를 기반으로 한다. 원본에서 확정하지 못한 코드값·키·제약은 [구현 결정](docs/ERD.md)에 구분해 기록했다.
+
+## 실행
+
+```powershell
+docker compose up -d mysql
+cd backend
+.\gradlew.bat bootRun
 ```
 
-대여 계약과 상품의 상태를 분리해 관리합니다.
+별도 터미널:
 
-```text
-RentalContract
-REQUESTED → APPROVED → PICKED_UP → IN_USE
-→ RETURNED → INSPECTING → COMPLETED
-
-RentalProduct
-AVAILABLE → RESERVED → RENTED → INSPECTION
-→ AVAILABLE or MAINTENANCE
-```
-
-### Operations
-
-```text
-대여 이력
-→ 시간 단위 수요 데이터
-→ Historical Average / Granite TTM-R3
-→ demand_forecast
-→ 재고 부족 Rule
-→ inventory_recommendation
-→ 운영자 Dashboard
-→ ACCEPTED / DISMISSED
-```
-
-## Architecture
-
-```text
-React + TypeScript
-Operator Dashboard
-        │
-        │ REST / JWT
-        ▼
-Spring Boot
-├─ Auth / Access Control
-├─ Rental / Condition / Damage / Inspection
-└─ Forecast / Recommendation API
-        │
-        ▼
-      MySQL
-        ▲
-        │
-Python Batch
-├─ Synthetic Dataset
-├─ Historical Average
-├─ Granite TTM-R3 Zero-shot
-└─ MAE / RMSE Evaluation
-```
-
-수요 예측은 사용자 요청마다 계산할 필요가 없다고 판단해 실시간 ML API를 별도로 두지 않았습니다. Python batch가 예측 결과를 MySQL에 저장하고 Spring Boot가 이를 조회해 운영자에게 제공합니다.
-
-## Key Engineering Decisions
-
-### 대여 건별 상태 이력 보존
-
-상품의 현재 상태만 덮어쓰지 않고 대여 건마다 BEFORE / AFTER snapshot을 저장합니다.
-
-```text
-RentalContract
-├─ BEFORE ConditionRecord
-│  ├─ ConditionImage
-│  └─ DamageRecord
-├─ AFTER ConditionRecord
-│  ├─ ConditionImage
-│  └─ DamageRecord
-└─ ReturnInspection
-```
-
-반복 대여에서도 각 계약의 상태·사진·손상 이력을 분리해 확인할 수 있습니다.
-
-### 동시 대여 요청 제어
-
-동일 상품에 여러 사용자가 동시에 대여를 요청하는 상황을 통합 테스트로 재현하고, `PESSIMISTIC_WRITE` 기반 잠금으로 하나의 요청만 성공하도록 처리했습니다.
-
-### 이미지 저장소 분리
-
-ConditionImage에는 저장 메타데이터를 보관하고 `ImageStorage` 인터페이스를 통해 파일 저장 책임을 분리했습니다. 현재는 Local File adapter를 사용하며 이후 object storage로 교체할 수 있습니다.
-
-### JWT 인증과 권한
-
-```text
-email / password
-→ BCrypt
-→ JWT access token
-→ Spring Security
-→ Member ACTIVE / DB role 재확인
-→ USER / OPERATOR 권한
-```
-
-JWT에는 Member ID만 subject로 저장하며 요청마다 DB의 현재 상태와 role을 다시 확인합니다.
-
-### Forecast와 운영 Rule 분리
-
-AI 모델은 수요만 예측합니다.
-
-```text
-predicted demand
-+ available quantity
-+ safety stock
-→ recommended additional quantity
-→ risk level
-```
-
-재고 보충 수량과 위험도는 운영 Rule에서 계산하고, 최종 판단은 운영자가 `ACCEPTED / DISMISSED`로 기록합니다.
-
-## Demand Forecast Experiment
-
-Hugging Face에 공개된 IBM Granite TTM-R3를 zero-shot으로 사용하고, 동일한 시간순 holdout에서 Historical Average baseline과 비교했습니다.
-
-실험에는 운영 데이터가 아닌 재현 가능한 합성 대여 이력을 사용했습니다.
-
-| Model | MAE | RMSE |
-| --- | ---: | ---: |
-| Historical Average | 1.111979 | 1.430918 |
-| Granite TTM-R3 Zero-shot | **1.044682** | **1.410518** |
-
-```text
-Dataset: synthetic-v1-seed42-720h
-Locations: 2
-Categories: 2
-Series: 4
-Rows: 2,880
-Holdout: final 24 hours
-```
-
-이번 합성 데이터 실행에서는 TTM-R3의 MAE와 RMSE가 모두 낮았습니다. 이 결과는 pipeline 검증을 위한 한 번의 합성 데이터 실행 결과이며, 실제 서비스 수요에 대한 일반화 성능을 의미하지 않습니다.
-
-예측 결과와 실행 이력은 다음 테이블로 보존합니다.
-
-```text
-model_run
-demand_forecast
-inventory_recommendation
-```
-
-## Operator Dashboard
-
-운영자는 Dashboard에서 다음 정보를 확인하고 판단을 기록할 수 있습니다.
-
-- 최신 모델 실행 정보
-- Historical Average / TTM-R3 MAE·RMSE 비교
-- 지점·카테고리별 예측 수요
-- OPEN recommendation 위험도 분포
-- 추가 배치 권장 수량
-- 우선 검토 recommendation
-- ACCEPTED / DISMISSED 처리
-
-## Tech Stack
-
-**Backend**  
-`Java 21` `Spring Boot` `Spring Data JPA` `Spring Security` `Flyway` `MySQL`
-
-**Frontend**  
-`React` `TypeScript` `Vite` `Axios`
-
-**Data / AI**  
-`Python` `Pandas` `Granite TTM-R3` `Hugging Face`
-
-**Engineering**  
-`Docker Compose` `GitHub Actions`
-
-## Repository
-
-```text
-RentalTrack/
-├─ backend/
-├─ frontend/
-│  └─ web/
-├─ ai/
-│  └─ demand_forecasting/
-├─ docs/
-├─ compose.yaml
-└─ README.md
-```
-
-## Local Run
-
-환경변수 예시를 복사합니다.
-
-```bash
-cp .env.example .env
-```
-
-MySQL과 Backend를 실행합니다.
-
-```bash
-docker compose up --build
-```
-
-Frontend를 실행합니다.
-
-```bash
+```powershell
 cd frontend/web
-npm install
+npm ci
 npm run dev
 ```
 
-Vite 개발 서버의 `/api` 요청은 `http://localhost:8080`으로 proxy됩니다.
+- Web: `http://localhost:5173`
+- API: `http://localhost:8080`
+- 백엔드가 다른 주소라면 프런트엔드 실행 전에 `RENTALTRACK_API_URL` 환경변수 설정.
+- 회원가입 시 일반회원으로 생성. 로그인 ID는 영문·숫자·`.`·`_`·`-` 조합 3~50자, 비밀번호는 10~72자.
+- 검수담당자·관리자는 DB 관리 권한으로 역할을 부여. 공개 회원가입으로 역할을 지정할 수 없음.
 
-### Operator Demo
-
-공개 회원가입은 USER role만 생성합니다.
-
-```text
-POST /api/v1/auth/register
-POST /api/v1/auth/login
-GET  /api/v1/auth/me
-```
-
-운영자 Dashboard를 확인하려면 로컬 DB에서 해당 계정의 role을 OPERATOR로 변경합니다.
+최초 관리자 설정 예시 — 가입한 실제 login_id를 지정:
 
 ```sql
-UPDATE member_account
-SET role = 'OPERATOR'
-WHERE email = 'operator@example.com';
+UPDATE `member` SET member_role_cd='ADMIN' WHERE login_id='your_admin_login';
 ```
 
-## Validation
+관리자는 화면에서 사업자·개별 상품을 등록하고, 검수담당자는 계약 ID로 조회해 검수를 진행한다. 역할 변경 후 다시 로그인한다.
 
-GitHub Actions에서 영역별 검증을 분리했습니다.
+## 검증
 
-```text
-Backend Validation
-→ Java 21 + MySQL 8.4
-→ Flyway migration
-→ Hibernate ddl-auto=validate
-→ Unit / Integration Test
+운영 DB와 분리한 임시 MySQL 사용:
 
-Frontend Validation
-→ TypeScript / Vite build
-
-AI Validation
-→ Dataset / Baseline / Recommendation test
-→ Synthetic baseline smoke test
-
-Demand Forecast Experiment
-→ Synthetic history
-→ Historical Average / TTM-R3
-→ MAE / RMSE
-→ DB persistence
-→ artifact export
+```powershell
+docker compose -f compose.test.yaml up -d --wait
+$env:SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:33317/rentaltrack_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul'
+cd backend
+.\gradlew.bat test bootJar --no-daemon
+cd ../frontend/web
+npm ci
+npm run build
 ```
 
-## Current Scope
+업그레이드 테스트는 별도 `rentaltrack_upgrade_test` DB만 초기화한다. 테스트용 compose가 이 DB와 권한을 준비한다. 테스트 종료 후 저장소 루트에서 `docker compose -f compose.test.yaml down` 실행. [검증 항목](docs/VALIDATION.md) 참조.
 
-v1에서는 다음을 의도적으로 범위에서 제외했습니다.
+## 기존 버전에서 변경된 점
 
-- 실서비스 수요 데이터를 이용한 모델 성능 주장
-- 합성 데이터 fine-tuning
-- 실시간 ML inference server
-- AI 기반 손상 책임 판정
-- refresh token / token revocation
-- S3·MinIO 등 object storage adapter
-- 추천 승인 이후 상품 재배치의 자동 실행
+- 활성 애플리케이션에서 지점·수요 예측·재고 추천 기능을 제외하고 대여·상태 기록·반납 검수로 재구성.
+- 구버전 AI 실험 코드는 `archive/ai/`, 문서는 `docs/legacy/`에 보존. 새 API와 연결되지 않음.
+- 인증 경로는 `/api/v1/auth/*`, 새 업무 API는 `/api/v2/*`. 구버전 업무 API는 제공하지 않음.
+- V1~V10은 수정하지 않음. V11에서 충돌하는 기존 테이블 세 개를 `legacy_*`로 이름 변경하고 새 모델 생성.
+- **기존 이력·회원은 기존 테이블에 보존되며 새 화면으로 자동 이전되지 않음.** 운영 데이터가 있다면 [이전 절차](docs/MIGRATION.md)에 따라 사업자·상품·상태 매핑을 먼저 확정해야 함.
 
-현재 목표는 렌탈 도메인의 상태·이력 일관성을 유지하면서, 서비스에서 발생한 데이터를 수요 예측과 운영 의사결정으로 연결하는 전체 흐름을 재현하는 것입니다.
+## 문서
 
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Authentication](docs/AUTHENTICATION.md)
-- [AI Architecture](docs/AI-ARCHITECTURE.md)
-- [Demand Forecast Experiment](docs/DEMAND-FORECAST-EXPERIMENT.md)
-- [Phase 4 Experiment Result](docs/PHASE4-EXPERIMENT-RESULT.md)
-- [Operator AI API](docs/OPERATOR-AI-API.md)
-- [Operator Dashboard](docs/OPERATOR-DASHBOARD.md)
-- [Roadmap](docs/ROADMAP.md)
+- [도메인과 상태 전이](docs/DOMAIN.md)
+- [ERD·물리 제약·코드값](docs/ERD.md)
+- [API](docs/API.md)
+- [DB 이전](docs/MIGRATION.md)
+- [검증](docs/VALIDATION.md)
